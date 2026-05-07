@@ -1,0 +1,80 @@
+[[trade-api]]
+== Trade API
+
+=== 모듈 책임
+
+Trade 모듈은 판매자와 구매자의 거래 진행, 채팅, 후기 흐름을 담당합니다.
+
+* 거래 예약, 취소, 완료
+* 채팅방 생성과 조회
+* 메시지 전송과 조회
+* 채팅 차단
+* 만남 장소 협의
+* 거래 후기 작성과 조회
+
+=== API 예정 목록
+
+[cols="1,2,3",options="header"]
+|===
+|기능 |예상 메서드/경로 |설명
+
+|거래 예약
+|`POST /api/trades`
+|판매글에 대한 거래를 예약합니다.
+
+|거래 취소
+|`POST /api/trades/{tradeId}/cancel`
+|진행 중인 거래를 취소합니다.
+
+|거래 완료
+|`POST /api/trades/{tradeId}/complete`
+|거래를 완료 상태로 변경합니다.
+
+|채팅방 생성
+|`POST /api/trades/{tradeId}/chat-rooms`
+|거래 채팅방을 생성합니다.
+
+|채팅방 조회
+|`GET /api/chat-rooms`
+|내 채팅방 목록을 조회합니다.
+
+|메시지 전송
+|`POST /api/chat-rooms/{chatRoomId}/messages`
+|채팅 메시지를 전송합니다.
+
+|메시지 조회
+|`GET /api/chat-rooms/{chatRoomId}/messages`
+|채팅 메시지 목록을 조회합니다.
+
+|채팅 차단
+|`POST /api/chat-rooms/{chatRoomId}/blocks`
+|채팅 상대를 차단합니다.
+
+|후기 작성
+|`POST /api/trades/{tradeId}/reviews`
+|거래 후기를 작성합니다.
+
+|후기 조회
+|`GET /api/members/{memberId}/reviews`
+|사용자가 받은 후기를 조회합니다.
+|===
+
+=== TODO: snippet include 자리
+
+아직 연결된 Trade REST Docs snippet은 없습니다.
+문서 테스트가 추가되면 아래 include를 실제 snippet 경로에 맞게 활성화합니다.
+
+[source,adoc]
+----
+// include::{snippets}/trade/reserve/http-request.adoc[]
+// include::{snippets}/trade/reserve/http-response.adoc[]
+// include::{snippets}/trade/cancel/path-parameters.adoc[]
+// include::{snippets}/trade/cancel/http-response.adoc[]
+// include::{snippets}/trade/complete/path-parameters.adoc[]
+// include::{snippets}/trade/complete/http-response.adoc[]
+// include::{snippets}/trade/chat-room-create/http-response.adoc[]
+// include::{snippets}/trade/message-send/http-request.adoc[]
+// include::{snippets}/trade/message-list/http-response.adoc[]
+// include::{snippets}/trade/review-create/http-request.adoc[]
+// include::{snippets}/trade/review-list/http-response.adoc[]
+----
