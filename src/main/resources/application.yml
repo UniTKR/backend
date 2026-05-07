@@ -1,0 +1,56 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+  application:
+    name: ${SPRING_APPLICATION_NAME:unit-backend}
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  jackson:
+    time-zone: ${APP_TIME_ZONE:Asia/Seoul}
+    default-property-inclusion: non_null
+
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: ${APP_TIME_ZONE:Asia/Seoul}
+
+  modulith:
+    runtime:
+      verification-enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,modulith
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  level:
+    com.unit: ${APP_LOG_LEVEL:INFO}
+    org.springframework.modulith: INFO
+
+unit:
+  cors:
+    allowed-origins: ${UNIT_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  security:
+    jwt:
+      issuer: ${JWT_ISSUER:unit-api}
+      access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30m}
+      refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:14d}
