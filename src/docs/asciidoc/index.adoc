@@ -1,0 +1,82 @@
+= UniT API Documentation
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toc-title: 목차
+:toclevels: 3
+:sectlinks:
+:docsdir: src/docs/asciidoc
+
+== 문서 개요
+
+UniT 백엔드 API 문서의 진입점입니다.
+
+이 문서는 Spring MVC, MockMvc, Spring REST Docs 기반으로 생성되는 snippet을 조합해 작성합니다.
+REST Docs snippet은 `{snippets}` 하위에 생성되며, 최종 HTML은 `build/docs/asciidoc/index.html`에 생성됩니다.
+
+== 문서 규칙
+
+=== 작성 원칙
+
+* API 동작은 테스트와 REST Docs snippet으로 검증한 뒤 문서에 연결합니다.
+* 아직 snippet이 없는 API는 TODO 목록으로 남기고 include는 주석 처리합니다.
+* 공통 응답, 공통 에러, Trace ID 등 전역 규칙은 Platform 문서에서 관리합니다.
+* 모듈 문서는 각 모듈의 책임과 사용자 흐름이 드러나도록 구성합니다.
+* 문서에 예시를 추가할 때는 실제 API 응답 구조와 어긋나지 않게 유지합니다.
+
+=== Snippet 연결 규칙
+
+snippet이 생성된 API만 다음 형식으로 include를 활성화합니다.
+
+[source,adoc]
+----
+\include::{snippets}/문서-식별자/http-request.adoc[]
+\include::{snippets}/문서-식별자/http-response.adoc[]
+\include::{snippets}/문서-식별자/response-fields.adoc[]
+----
+
+snippet이 아직 없다면 아래처럼 주석으로 자리만 남깁니다.
+
+[source,adoc]
+----
+// TODO: REST Docs snippet 생성 후 include 활성화
+// \include::{snippets}/member/signup/http-request.adoc[]
+----
+
+=== 공통 응답 규칙
+
+성공 응답은 기본적으로 `ApiResponse` 형식을 따릅니다.
+
+[source,json]
+----
+{
+  "code": "OK",
+  "data": {}
+}
+----
+
+에러 응답은 `ErrorResponse` 형식을 따르며, 상세 규칙은 Platform API 문서에서 설명합니다.
+
+[source,json]
+----
+{
+  "code": "RESOURCE_NOT_FOUND",
+  "message": "요청한 리소스를 찾을 수 없습니다.",
+  "traceId": "trace-id",
+  "fieldErrors": null
+}
+----
+
+== 모듈별 API 문서
+
+include::{docsdir}/platform.adoc[]
+
+include::{docsdir}/member.adoc[]
+
+include::{docsdir}/market.adoc[]
+
+include::{docsdir}/trade.adoc[]
+
+include::{docsdir}/ops.adoc[]
+

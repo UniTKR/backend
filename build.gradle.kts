@@ -69,6 +69,7 @@ dependencies {
     // Test - docs / modulith
     testImplementation("org.springframework.boot:spring-boot-starter-restdocs")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+    testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
 
     // Test DB
     testRuntimeOnly("com.h2database:h2")
@@ -105,6 +106,12 @@ tasks.test {
 tasks.asciidoctor {
     inputs.dir(project.extra["snippetsDir"]!!)
     dependsOn(tasks.test)
+
+    attributes(
+        mapOf(
+            "snippets" to project.extra["snippetsDir"]!!
+        )
+    )
 }
 
 jacoco {
@@ -127,7 +134,7 @@ tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                minimum = "0.30".toBigDecimal()
+                minimum = "0.70".toBigDecimal()
             }
         }
     }

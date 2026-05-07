@@ -1,0 +1,76 @@
+[[member-api]]
+== Member API
+
+=== 모듈 책임
+
+Member 모듈은 사용자 계정과 학교 기반 인증 흐름을 담당합니다.
+
+* 사용자 가입과 프로필 관리
+* 자체 로그인과 소셜 로그인
+* 토큰 재발급
+* 학교 검색과 학교 이메일 인증
+* 신뢰 점수 조회와 갱신 흐름
+
+=== API 예정 목록
+
+[cols="1,2,3",options="header"]
+|===
+|기능 |예상 메서드/경로 |설명
+
+|회원가입
+|`POST /api/members`
+|신규 사용자를 생성합니다.
+
+|로그인
+|`POST /api/auth/login`
+|자체 로그인으로 토큰을 발급합니다.
+
+|소셜 로그인
+|`POST /api/auth/social-login`
+|소셜 인증 정보로 로그인하거나 가입합니다.
+
+|토큰 재발급
+|`POST /api/auth/token/refresh`
+|Refresh Token으로 Access Token을 재발급합니다.
+
+|학교 검색
+|`GET /api/schools`
+|학교명 또는 조건으로 학교 목록을 조회합니다.
+
+|학교 이메일 인증 요청
+|`POST /api/school-email-verifications`
+|학교 이메일 인증 코드를 발송합니다.
+
+|학교 이메일 인증 확인
+|`POST /api/school-email-verifications/confirm`
+|인증 코드를 검증합니다.
+
+|프로필 조회
+|`GET /api/members/me`
+|내 프로필을 조회합니다.
+
+|프로필 수정
+|`PATCH /api/members/me`
+|내 프로필 정보를 수정합니다.
+
+|신뢰 점수 조회
+|`GET /api/members/{memberId}/trust-score`
+|사용자의 신뢰 점수를 조회합니다.
+|===
+
+=== TODO: snippet include 자리
+
+아직 연결된 Member REST Docs snippet은 없습니다.
+문서 테스트가 추가되면 아래 include를 실제 snippet 경로에 맞게 활성화합니다.
+
+[source,adoc]
+----
+// include::{snippets}/member/signup/http-request.adoc[]
+// include::{snippets}/member/signup/request-fields.adoc[]
+// include::{snippets}/member/signup/http-response.adoc[]
+// include::{snippets}/member/login/http-request.adoc[]
+// include::{snippets}/member/login/http-response.adoc[]
+// include::{snippets}/member/profile-get/http-response.adoc[]
+// include::{snippets}/member/profile-update/http-request.adoc[]
+// include::{snippets}/member/profile-update/http-response.adoc[]
+----

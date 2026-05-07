@@ -1,17 +1,18 @@
 package com.unit.platform.error
 
+import jakarta.validation.ConstraintViolationException
 import jakarta.validation.Valid
 import jakarta.validation.constraints.NotBlank
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration
-import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.MediaType
+import org.springframework.security.access.AccessDeniedException
+import org.springframework.security.core.AuthenticationException
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.post
 import org.springframework.web.bind.annotation.PostMapping
@@ -79,6 +80,47 @@ class GlobalExceptionHandlerTest @Autowired constructor(
                 jsonPath("$.traceId") { exists() }
             }
     }
+
+    @Test
+    @DisplayName("ConstraintViolationException 발생 시 VALIDATION_FAILED를 반환한다")
+    fun constraintViolation() {
+        mockMvc.post("/test/constraint-violation")
+            .andExpect {
+                status { isBadRequest() }
+                jsonPath("$.code") { value("VALIDATION_FAILED") }
+                jsonPath("$.traceId") { exists() }
+            }
+    }
+
+    @Test
+    @DisplayName("AuthenticationException 발생 시 AUTH_REQUIRED를 반환한다")
+    fun authRequired() {
+        mockMvc.post("/test/authentication")
+            .andExpect {
+                status { isUnauthorized() }
+                jsonPath("$.code") { value("AUTH_REQUIRED") }
+            }
+    }
+
+    @Test
+    @DisplayName("AccessDeniedException 발생 시 FORBIDDEN을 반환한다")
+    fun forbidden() {
+        mockMvc.post("/test/access-denied")
+            .andExpect {
+                status { isForbidden() }
+                jsonPath("$.code") { value("FORBIDDEN") }
+            }
+    }
+
+    @Test
+    @DisplayName("DataIntegrityViolationException 발생 시 CONFLICT를 반환한다")
+    fun conflict() {
+        mockMvc.post("/test/data-integrity")
+            .andExpect {
+                status { isConflict() }
+                jsonPath("$.code") { value("CONFLICT") }
+            }
+    }
 }
 
 @RestController
@@ -97,6 +139,26 @@ private class ExceptionTestController {
     @PostMapping("/test/unexpected-exception")
     fun unexpectedException() {
         throw IllegalStateException("boom")
+    }
+
+    @PostMapping("/test/constraint-violation")
+    fun constraintViolation() {
+        throw ConstraintViolationException("검증 실패", emptySet())
+    }
+
+    @PostMapping("/test/authentication")
+    fun authentication() {
+        throw object : AuthenticationException("인증 실패") {}
+    }
+
+    @PostMapping("/test/access-denied")
+    fun accessDenied() {
+        throw AccessDeniedException("접근 거부")
+    }
+
+    @PostMapping("/test/data-integrity")
+    fun dataIntegrity() {
+        throw DataIntegrityViolationException("중복 데이터")
     }
 }
 

@@ -1,0 +1,122 @@
+[[platform-api]]
+== Platform API
+
+=== 모듈 책임
+
+Platform 모듈은 UniT API 전반에서 공유하는 기반 기능을 담당합니다.
+
+* 공통 성공 응답 형식
+* 공통 에러 응답 형식
+* 인증/보안 기반 규칙
+* 알림, idempotency 기반
+* Trace ID와 observability 기반
+
+=== 공통 성공 응답
+
+성공 응답은 `ApiResponse` 형식을 사용합니다.
+
+[cols="1,2,3",options="header"]
+|===
+|필드 |타입 |설명
+
+|`code`
+|String
+|응답 코드입니다. 일반 성공은 `OK`, 생성 성공은 `CREATED`를 사용합니다.
+
+|`data`
+|Object 또는 null
+|API별 응답 데이터입니다. 데이터가 없는 성공 응답에서는 `null`일 수 있습니다.
+|===
+
+=== 공통 에러 응답
+
+에러 응답은 `ErrorResponse` 형식을 사용합니다.
+
+[cols="1,2,3",options="header"]
+|===
+|필드 |타입 |설명
+
+|`code`
+|String
+|애플리케이션 에러 코드입니다.
+
+|`message`
+|String
+|사용자 또는 클라이언트가 이해할 수 있는 에러 메시지입니다.
+
+|`traceId`
+|String
+|요청 추적 ID입니다. 장애 분석과 로그 추적에 사용합니다.
+
+|`fieldErrors`
+|Array 또는 null
+|필드 검증 실패 목록입니다. 필드 검증 오류가 없으면 `null`일 수 있습니다.
+|===
+
+==== 비즈니스 예외 응답
+
+이미 생성된 REST Docs snippet이 있어 실제 include를 연결합니다.
+
+include::{snippets}/common-error/business-exception/http-response.adoc[]
+
+include::{snippets}/common-error/business-exception/response-fields.adoc[]
+
+=== 에러 코드 규칙
+
+[cols="1,2,2",options="header"]
+|===
+|분류 |예시 코드 |HTTP 상태
+
+|요청 검증
+|`VALIDATION_FAILED`, `MALFORMED_JSON`
+|`400 Bad Request`
+
+|인증
+|`AUTH_REQUIRED`, `INVALID_TOKEN`
+|`401 Unauthorized`
+
+|인가
+|`FORBIDDEN`
+|`403 Forbidden`
+
+|리소스
+|`RESOURCE_NOT_FOUND`
+|`404 Not Found`
+
+|상태 충돌
+|`CONFLICT`
+|`409 Conflict`
+
+|요청 제한
+|`RATE_LIMITED`
+|`429 Too Many Requests`
+
+|서버 오류
+|`INTERNAL_ERROR`
+|`500 Internal Server Error`
+|===
+
+=== Trace ID
+
+모든 요청은 `X-Trace-Id` 헤더로 추적할 수 있습니다.
+
+* 클라이언트가 `X-Trace-Id`를 전달하면 해당 값을 응답 헤더에 다시 전달합니다.
+* 클라이언트가 전달하지 않으면 서버가 Trace ID를 생성합니다.
+* 에러 응답 본문에는 `traceId` 필드가 포함됩니다.
+
+=== TODO: snippet include 자리
+
+아래 항목은 API 또는 문서 테스트가 준비되면 include를 활성화합니다.
+
+* 공통 성공 응답 예시
+* 검증 실패 에러 응답
+* 인증 실패 에러 응답
+* Trace ID 헤더 예시
+
+[source,adoc]
+----
+// include::{snippets}/common-response/success/http-response.adoc[]
+// include::{snippets}/common-error/validation-failed/http-response.adoc[]
+// include::{snippets}/common-error/auth-required/http-response.adoc[]
+// include::{snippets}/platform/trace-id/response-headers.adoc[]
+----
