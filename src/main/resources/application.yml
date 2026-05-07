@@ -30,6 +30,7 @@ spring:
 management:
   endpoints:
     web:
+      base-path: /actuator
       exposure:
         include: health,info,metrics,prometheus,modulith
   endpoint:
@@ -37,6 +38,11 @@ management:
       probes:
         enabled: true
       show-details: when_authorized
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
   metrics:
     tags:
       application: ${spring.application.name}
