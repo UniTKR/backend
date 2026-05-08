@@ -118,8 +118,35 @@ jacoco {
     toolVersion = "0.8.13"
 }
 
+val jacocoExcludes = listOf(
+    "**/*Application.class",
+    "**/*ApplicationKt.class",
+    "**/entity/**",
+    "**/*Repository.class",
+    "**/*Repository\$DefaultImpls.class",
+    "**/*\$DefaultImpls.class",
+    "**/*\$WhenMappings.class",
+    "**/*Response.class",
+    "**/*Response\$Companion.class",
+    "**/*Request.class",
+    "**/*Dto.class",
+    "**/*DTO.class",
+    "**/*Enum.class",
+    "**/enums/**",
+)
+
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
+
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(jacocoExcludes)
+                }
+            },
+        ),
+    )
 
     reports {
         html.required.set(true)
@@ -130,6 +157,16 @@ tasks.jacocoTestReport {
 
 tasks.jacocoTestCoverageVerification {
     dependsOn(tasks.jacocoTestReport)
+
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(jacocoExcludes)
+                }
+            },
+        ),
+    )
 
     violationRules {
         rule {
