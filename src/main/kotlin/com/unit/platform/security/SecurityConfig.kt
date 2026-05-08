@@ -1,4 +1,4 @@
-package com.unit.platform.config
+package com.unit.platform.security
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
