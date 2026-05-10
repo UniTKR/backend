@@ -22,6 +22,12 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    main {
+        java.srcDir("src/main/kotlin")
+    }
+}
+
 extra["snippetsDir"] = file("build/generated-snippets")
 extra["springModulithVersion"] = "2.0.6"
 
@@ -58,6 +64,9 @@ dependencies {
     // Test - common
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+
+    // Test - mock
+    testImplementation("io.mockk:mockk:1.14.6")
 
     // Test - Spring slices
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
