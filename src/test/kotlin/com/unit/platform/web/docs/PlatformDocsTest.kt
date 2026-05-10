@@ -1,6 +1,8 @@
 package com.unit.platform.web.docs
 
 import com.unit.platform.error.GlobalExceptionHandler
+import com.unit.platform.security.JsonAccessDeniedHandler
+import com.unit.platform.security.JsonAuthenticationEntryPoint
 import com.unit.platform.security.SecurityConfig
 import com.unit.platform.web.filter.TraceIdFilter
 import com.unit.platform.web.filter.TraceIds
@@ -23,6 +25,8 @@ import org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath
 import org.springframework.restdocs.payload.PayloadDocumentation.requestFields
 import org.springframework.restdocs.payload.PayloadDocumentation.responseFields
 import org.springframework.security.core.AuthenticationException
+import org.springframework.security.oauth2.jwt.JwtDecoder
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
@@ -38,11 +42,16 @@ import org.springframework.web.bind.annotation.RestController
     GlobalExceptionHandler::class,
     SecurityConfig::class,
     TraceIdFilter::class,
+    JsonAuthenticationEntryPoint::class,
+    JsonAccessDeniedHandler::class,
 )
 @DisplayName("Platform API 문서화 테스트")
 class PlatformDocsTest @Autowired constructor(
     private val mockMvc: MockMvc,
 ) {
+
+    @MockitoBean
+    private lateinit var jwtDecoder: JwtDecoder
 
     @Test
     @DisplayName("공통 성공 응답 예시를 문서화한다")
