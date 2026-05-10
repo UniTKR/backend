@@ -2,7 +2,7 @@ package com.unit.member.util
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
 
 @DisplayName("EmailHasher 테스트")
 class EmailHasherTest {
