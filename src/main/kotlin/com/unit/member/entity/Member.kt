@@ -22,6 +22,9 @@ class Member(
     @Column(name = "phone_hash", columnDefinition = "BINARY(32)", unique = true)
     var phoneHash: ByteArray? = null,
 
+    @Column(name = "password_hash", length = 100)
+    var passwordHash: String? = null,
+
     @Column(name = "nickname", nullable = false, length = 40)
     var nickname: String,
 

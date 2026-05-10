@@ -13,4 +13,6 @@ interface MemberRepository : JpaRepository<Member, Long> {
         id: Long,
         status: MemberStatus = MemberStatus.ACTIVE,
     ): Member?
+
+    fun existsByNicknameAndDeletedAtIsNull(nickname: String): Boolean
 }
