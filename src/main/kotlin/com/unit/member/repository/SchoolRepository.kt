@@ -8,6 +8,11 @@ interface SchoolRepository : JpaRepository<School, Long> {
 
     fun findAllByStatusOrderByNameAsc(status: SchoolStatus = SchoolStatus.ACTIVE): List<School>
 
+    fun findAllByStatusAndNameContainingOrderByNameAsc(
+        status: SchoolStatus,
+        name: String
+    ): List<School>
+
     fun findByIdAndStatus(
         id: Long,
         status: SchoolStatus = SchoolStatus.ACTIVE,

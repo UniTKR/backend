@@ -3,65 +3,75 @@
 
 === 모듈 책임
 
-Member 모듈은 사용자 계정과 학교 기반 인증 흐름을 담당합니다.
+Member 모듈은 사용자 계정, 로그인, 토큰, 학교 선택, 학교 이메일 인증 흐름을 담당합니다.
 
-* 사용자 가입과 프로필 관리
+* 회원가입과 프로필 관리
 * 자체 로그인과 소셜 로그인
-* 토큰 재발급
-* 학교 검색과 학교 이메일 인증
-* 신뢰 점수 조회와 갱신 흐름
+* Access Token / Refresh Token 관리
+* 학교 목록 조회
+* 학교 이메일 인증 요청과 확인
+* 사용자 신뢰 점수 조회와 갱신
 
-=== API 예정 목록
+=== API 목록
 
 [cols="1,2,3",options="header"]
 |===
-|기능 |예상 메서드/경로 |설명
+|기능 |메서드 / 경로 |설명
+
+|학교 목록 조회
+|`GET /api/v1/schools`
+|활성 학교 목록을 조회합니다. `keyword`로 학교명을 검색할 수 있습니다.
 
 |회원가입
-|`POST /api/members`
+|`POST /api/v1/auth/signup`
 |신규 사용자를 생성합니다.
 
 |로그인
-|`POST /api/auth/login`
-|자체 로그인으로 토큰을 발급합니다.
-
-|소셜 로그인
-|`POST /api/auth/social-login`
-|소셜 인증 정보로 로그인하거나 가입합니다.
+|`POST /api/v1/auth/login`
+|이메일과 비밀번호로 로그인하고 토큰을 발급합니다.
 
 |토큰 재발급
-|`POST /api/auth/token/refresh`
+|`POST /api/v1/auth/token/refresh`
 |Refresh Token으로 Access Token을 재발급합니다.
 
-|학교 검색
-|`GET /api/schools`
-|학교명 또는 조건으로 학교 목록을 조회합니다.
+|내 프로필 조회
+|`GET /api/v1/members/me`
+|현재 로그인한 사용자의 프로필을 조회합니다.
+
+|내 프로필 수정
+|`PATCH /api/v1/members/me`
+|현재 로그인한 사용자의 프로필 정보를 수정합니다.
 
 |학교 이메일 인증 요청
-|`POST /api/school-email-verifications`
-|학교 이메일 인증 코드를 발송합니다.
+|`POST /api/v1/school-verifications/request`
+|학교 이메일로 인증 코드를 발송합니다.
 
 |학교 이메일 인증 확인
-|`POST /api/school-email-verifications/confirm`
-|인증 코드를 검증합니다.
-
-|프로필 조회
-|`GET /api/members/me`
-|내 프로필을 조회합니다.
-
-|프로필 수정
-|`PATCH /api/members/me`
-|내 프로필 정보를 수정합니다.
+|`POST /api/v1/school-verifications/confirm`
+|인증 코드를 검증하고 학교 인증 상태를 저장합니다.
 
 |신뢰 점수 조회
-|`GET /api/members/{memberId}/trust-score`
+|`GET /api/v1/members/{memberId}/trust-score`
 |사용자의 신뢰 점수를 조회합니다.
 |===
 
-=== TODO: snippet include 자리
+=== School APIs
 
-아직 연결된 Member REST Docs snippet은 없습니다.
-문서 테스트가 추가되면 아래 include를 실제 snippet 경로에 맞게 활성화합니다.
+==== 학교 목록 조회
+
+학교 선택 화면에서 사용할 활성 학교 목록을 조회합니다. `keyword`를 전달하면 학교명 기준으로 검색합니다.
+
+include::{snippets}/member/schools/list/http-request.adoc[]
+
+include::{snippets}/member/schools/list/query-parameters.adoc[]
+
+include::{snippets}/member/schools/list/http-response.adoc[]
+
+include::{snippets}/member/schools/list/response-fields.adoc[]
+
+=== TODO: snippet include 목록
+
+아직 연결되지 않은 Member API는 구현과 문서화 테스트가 추가될 때 아래 항목을 실제 snippet 경로로 연결합니다.
 
 [source,adoc]
 ----
@@ -73,4 +83,6 @@ Member 모듈은 사용자 계정과 학교 기반 인증 흐름을 담당합니
 // include::{snippets}/member/profile-get/http-response.adoc[]
 // include::{snippets}/member/profile-update/http-request.adoc[]
 // include::{snippets}/member/profile-update/http-response.adoc[]
+// include::{snippets}/member/school-verifications/request/http-request.adoc[]
+// include::{snippets}/member/school-verifications/confirm/http-request.adoc[]
 ----
