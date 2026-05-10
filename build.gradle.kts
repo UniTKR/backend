@@ -142,6 +142,7 @@ val jacocoExcludes = listOf(
     "**/*DTO.class",
     "**/*Enum.class",
     "**/enums/**",
+    "**/*ErrorCode*",
 )
 
 tasks.jacocoTestReport {
