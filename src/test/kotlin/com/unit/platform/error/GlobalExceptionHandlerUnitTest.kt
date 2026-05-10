@@ -56,7 +56,7 @@ class GlobalExceptionHandlerUnitTest {
     @Test
     @DisplayName("ConstraintViolationException의 violation을 fieldErrors로 변환한다")
     fun handleConstraintViolation_withViolations() {
-        val violation = mock(ConstraintViolation::class.java) as ConstraintViolation<Any>
+        val violation = mock(ConstraintViolation::class.java) as ConstraintViolation<*>
         val path = mock(Path::class.java)
 
         given(path.toString()).willReturn("name")
