@@ -32,7 +32,11 @@ logging:
 unit:
   security:
     jwt:
+      issuer: ${JWT_ISSUER}
       secret: ${JWT_SECRET}
+      access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS}
+    refresh-token:
+      expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS}
 
 management:
   endpoints:

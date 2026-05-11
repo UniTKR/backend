@@ -22,3 +22,5 @@ unit:
       issuer: unit-test
       secret: test-jwt-secret-must-be-at-least-32-bytes
       access-token-expiration-seconds: 1800
+    refresh-token:
+      expiration-seconds: 1209600 # 14일
