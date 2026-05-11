@@ -90,6 +90,50 @@ include::{snippets}/member/signup/email-duplicated/http-response.adoc[]
 
 include::{snippets}/member/signup/email-duplicated/response-fields.adoc[]
 
+=== Auth APIs
+
+==== 로그인
+
+이메일과 비밀번호로 로그인하고 Access Token을 발급합니다.
+학교 인증 대기 상태인 `PENDING` 회원도 로그인할 수 있으며, 정지 또는 삭제 상태인 회원은 로그인할 수 없습니다.
+
+include::{snippets}/member/login/http-request.adoc[]
+
+include::{snippets}/member/login/request-fields.adoc[]
+
+include::{snippets}/member/login/http-response.adoc[]
+
+include::{snippets}/member/login/response-fields.adoc[]
+
+==== 로그인 검증 실패
+
+요청 본문이 유효하지 않으면 `VALIDATION_FAILED` 에러와 필드별 실패 사유를 반환합니다.
+
+include::{snippets}/member/login/validation-failed/http-request.adoc[]
+
+include::{snippets}/member/login/validation-failed/request-fields.adoc[]
+
+include::{snippets}/member/login/validation-failed/http-response.adoc[]
+
+include::{snippets}/member/login/validation-failed/response-fields.adoc[]
+
+==== 로그인 인증 실패
+
+이메일 또는 비밀번호가 올바르지 않으면 `AUTH_INVALID_CREDENTIALS` 에러를 반환합니다.
+보안을 위해 이메일 존재 여부와 비밀번호 불일치 여부는 구분하지 않습니다.
+
+include::{snippets}/member/login/invalid-credentials/http-response.adoc[]
+
+include::{snippets}/member/login/invalid-credentials/response-fields.adoc[]
+
+==== 로그인 금지 상태
+
+정지 또는 삭제 등 로그인할 수 없는 회원 상태이면 `MEMBER_LOGIN_FORBIDDEN` 에러를 반환합니다.
+
+include::{snippets}/member/login/forbidden/http-response.adoc[]
+
+include::{snippets}/member/login/forbidden/response-fields.adoc[]
+
 === School APIs
 
 ==== 학교 목록 조회
@@ -111,8 +155,6 @@ include::{snippets}/member/schools/list/response-fields.adoc[]
 
 [source,adoc]
 ----
-// include::{snippets}/member/login/http-request.adoc[]
-// include::{snippets}/member/login/http-response.adoc[]
 // include::{snippets}/member/profile-get/http-response.adoc[]
 // include::{snippets}/member/profile-update/http-request.adoc[]
 // include::{snippets}/member/profile-update/http-response.adoc[]

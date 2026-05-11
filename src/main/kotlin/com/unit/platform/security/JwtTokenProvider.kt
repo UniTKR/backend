@@ -29,4 +29,8 @@ class JwtTokenProvider(
 
         return jwtEncoder.encode(JwtEncoderParameters.from(headers, claims)).tokenValue
     }
+
+    fun accessTokenExpiresIn(): Long {
+        return properties.accessTokenExpirationSeconds
+    }
 }

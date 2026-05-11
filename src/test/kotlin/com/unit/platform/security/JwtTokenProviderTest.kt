@@ -1,8 +1,6 @@
 package com.unit.platform.security
 
-import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.security.oauth2.jwt.JwtDecoder
@@ -64,6 +62,15 @@ class JwtTokenProviderTest @Autowired constructor(
         val claimMemberId = jwt.getClaim<Number>("memberId").toLong()
 
         assertThat(claimMemberId).isEqualTo(memberId)
+    }
+
+    @Test
+    @DisplayName("accessTokenExpiresIn() 정상 동작")
+    fun accessTokenExpiresIn() {
+
+        val accessTokenExpiresIn = jwtTokenProvider.accessTokenExpiresIn()
+
+        assertThat(accessTokenExpiresIn).isEqualTo(1800L)
     }
 
 }
