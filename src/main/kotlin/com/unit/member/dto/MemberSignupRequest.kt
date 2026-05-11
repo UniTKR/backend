@@ -9,6 +9,10 @@ data class MemberSignupRequest(
 
     @field:NotBlank
     @field:Size(min = 8, max = 72)
+    @field:Pattern(
+        regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[^A-Za-z0-9\\s])\\S+$",
+        message = "비밀번호는 영문, 숫자, 특수문자를 포함해야 하며 공백을 사용할 수 없습니다."
+    )
     val password: String,
 
     @field:NotBlank

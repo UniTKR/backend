@@ -8,8 +8,9 @@ import com.unit.member.exception.MemberErrorCode
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.platform.error.BusinessException
 import com.unit.platform.error.GlobalExceptionHandler
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
 import org.springframework.beans.factory.annotation.Autowired
@@ -134,5 +135,40 @@ class MemberControllerTest @Autowired constructor(
         then(memberSignupUseCase).should().signup(request)
         then(memberSignupUseCase).shouldHaveNoMoreInteractions()
     }
+
+    @ParameterizedTest(name = "[{index}] password={0}")
+    @ValueSource(
+        strings = [
+            "password123",
+            "password!",
+            "12345678!",
+            "pass 123!",
+            "pass1!",
+        ],
+    )
+    @DisplayName("비밀번호 정책을 만족하지 않으면 400을 반환한다")
+    fun signupWithInvalidPassword(password: String) {
+        mockMvc.post("/api/v1/members/signup") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+            {
+              "email": "test@unit.com",
+              "password": "$password",
+              "nickname": "unit_user",
+              "schoolId": 1
+            }
+        """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("VALIDATION_FAILED") }
+            jsonPath("$.fieldErrors") { isArray() }
+        }
+
+        then(memberSignupUseCase).shouldHaveNoInteractions()
+    }
+
+
 
 }
