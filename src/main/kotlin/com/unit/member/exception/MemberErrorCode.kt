@@ -14,4 +14,6 @@ enum class MemberErrorCode(
     SCHOOL_NOT_FOUND("SCHOOL_NOT_FOUND", "학교를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
     INVALID_LOGIN_CREDENTIALS("AUTH_INVALID_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
     MEMBER_LOGIN_FORBIDDEN("MEMBER_LOGIN_FORBIDDEN", "로그인할 수 없는 회원 상태입니다.", HttpStatus.FORBIDDEN),
+    INVALID_REFRESH_TOKEN("AUTH_INVALID_REFRESH_TOKEN", "Refresh Token이 유효하지 않습니다.", HttpStatus.UNAUTHORIZED),
+    EXPIRED_REFRESH_TOKEN("AUTH_EXPIRED_REFRESH_TOKEN", "Refresh Token이 만료되었습니다.", HttpStatus.UNAUTHORIZED),
 }
