@@ -2,6 +2,8 @@ package com.unit.member.controller
 
 import com.unit.member.dto.AuthLoginRequest
 import com.unit.member.dto.AuthLoginResponse
+import com.unit.member.dto.AuthTokenRefreshRequest
+import com.unit.member.dto.AuthTokenRefreshResponse
 import com.unit.member.dto.AuthenticatedMemberResponse
 import com.unit.member.enums.MemberStatus
 import com.unit.member.exception.MemberErrorCode
@@ -280,6 +282,302 @@ class AuthDocsTest @Autowired constructor(
                             .type(JsonFieldType.ARRAY)
                             .optional()
                             .description("필드 검증 실패 목록. 로그인 금지 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("토큰 재발급 API를 문서화한다")
+    fun refreshToken() {
+        val request = AuthTokenRefreshRequest(
+            refreshToken = "old-refresh-token",
+        )
+
+        given(refreshTokenUseCase.refresh(request)).willReturn(
+            AuthTokenRefreshResponse(
+                accessToken = "new-access-token",
+                refreshToken = "new-refresh-token",
+                tokenType = "Bearer",
+                expiresIn = 1800L,
+            ),
+        )
+
+        mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "old-refresh-token"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.accessToken") { value("new-access-token") }
+            jsonPath("$.data.refreshToken") { value("new-refresh-token") }
+            jsonPath("$.data.tokenType") { value("Bearer") }
+            jsonPath("$.data.expiresIn") { value(1800) }
+        }.andDo {
+            handle(
+                document(
+                    "member/token-refresh",
+                    requestFields(
+                        fieldWithPath("refreshToken")
+                            .type(JsonFieldType.STRING)
+                            .description("로그인 또는 직전 토큰 재발급 시 발급받은 Refresh Token"),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 응답 코드"),
+                        fieldWithPath("data")
+                            .type(JsonFieldType.OBJECT)
+                            .description("토큰 재발급 결과"),
+                        fieldWithPath("data.accessToken")
+                            .type(JsonFieldType.STRING)
+                            .description("새로 발급된 JWT Access Token"),
+                        fieldWithPath("data.refreshToken")
+                            .type(JsonFieldType.STRING)
+                            .description("새로 발급된 Refresh Token. 기존 Refresh Token은 재사용할 수 없습니다."),
+                        fieldWithPath("data.tokenType")
+                            .type(JsonFieldType.STRING)
+                            .description("토큰 타입. 현재는 Bearer입니다."),
+                        fieldWithPath("data.expiresIn")
+                            .type(JsonFieldType.NUMBER)
+                            .description("Access Token 만료 시간. 단위는 초입니다."),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("토큰 재발급 검증 실패 응답을 문서화한다")
+    fun refreshTokenValidationFailed() {
+        mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": ""
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("VALIDATION_FAILED") }
+            jsonPath("$.traceId") { exists() }
+            jsonPath("$.fieldErrors") { isArray() }
+        }.andDo {
+            handle(
+                document(
+                    "member/token-refresh/validation-failed",
+                    requestFields(
+                        fieldWithPath("refreshToken")
+                            .type(JsonFieldType.STRING)
+                            .description("검증 실패 예시 Refresh Token"),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .description("필드 검증 실패 목록"),
+                        fieldWithPath("fieldErrors[].field")
+                            .type(JsonFieldType.STRING)
+                            .description("검증에 실패한 필드명"),
+                        fieldWithPath("fieldErrors[].reason")
+                            .type(JsonFieldType.STRING)
+                            .description("검증 실패 사유"),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 Refresh Token 응답을 문서화한다")
+    fun refreshTokenInvalidToken() {
+        val request = AuthTokenRefreshRequest(
+            refreshToken = "invalid-refresh-token",
+        )
+
+        given(refreshTokenUseCase.refresh(request))
+            .willThrow(BusinessException(MemberErrorCode.INVALID_REFRESH_TOKEN))
+
+        mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "invalid-refresh-token"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("AUTH_INVALID_REFRESH_TOKEN") }
+            jsonPath("$.traceId") { exists() }
+        }.andDo {
+            handle(
+                document(
+                    "member/token-refresh/invalid-token",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 유효하지 않은 Refresh Token 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("만료된 Refresh Token 응답을 문서화한다")
+    fun refreshTokenExpiredToken() {
+        val request = AuthTokenRefreshRequest(
+            refreshToken = "expired-refresh-token",
+        )
+
+        given(refreshTokenUseCase.refresh(request))
+            .willThrow(BusinessException(MemberErrorCode.EXPIRED_REFRESH_TOKEN))
+
+        mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "expired-refresh-token"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("AUTH_EXPIRED_REFRESH_TOKEN") }
+            jsonPath("$.traceId") { exists() }
+        }.andDo {
+            handle(
+                document(
+                    "member/token-refresh/expired-token",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 만료된 Refresh Token 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("로그아웃 API를 문서화한다")
+    fun logout() {
+        mockMvc.post("/api/v1/auth/logout") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "refresh-token"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+        }.andDo {
+            handle(
+                document(
+                    "member/logout",
+                    requestFields(
+                        fieldWithPath("refreshToken")
+                            .type(JsonFieldType.STRING)
+                            .description("폐기할 Refresh Token"),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 응답 코드"),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("로그아웃 검증 실패 응답을 문서화한다")
+    fun logoutValidationFailed() {
+        mockMvc.post("/api/v1/auth/logout") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": ""
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("VALIDATION_FAILED") }
+            jsonPath("$.traceId") { exists() }
+            jsonPath("$.fieldErrors") { isArray() }
+        }.andDo {
+            handle(
+                document(
+                    "member/logout/validation-failed",
+                    requestFields(
+                        fieldWithPath("refreshToken")
+                            .type(JsonFieldType.STRING)
+                            .description("검증 실패 예시 Refresh Token"),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .description("필드 검증 실패 목록"),
+                        fieldWithPath("fieldErrors[].field")
+                            .type(JsonFieldType.STRING)
+                            .description("검증에 실패한 필드명"),
+                        fieldWithPath("fieldErrors[].reason")
+                            .type(JsonFieldType.STRING)
+                            .description("검증 실패 사유"),
                     ),
                 ),
             )

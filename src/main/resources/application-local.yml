@@ -20,14 +20,16 @@ spring:
 
   flyway:
     enabled: ${FLYWAY_ENABLED:true}
-    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+    locations:
+      - ${FLYWAY_LOCATIONS:classpath:db/migration}
+      - classpath:db/seed/local
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
 
 logging:
   level:
     com.unit: ${APP_LOG_LEVEL:DEBUG}
     org.hibernate.SQL: ${HIBERNATE_SQL_LOG_LEVEL:DEBUG}
-    org.hibernate.orm.jdbc.bind: ${HIBERNATE_BIND_LOG_LEVEL:TRACE}
+#    org.hibernate.orm.jdbc.bind: ${HIBERNATE_BIND_LOG_LEVEL:TRACE}
 
 unit:
   security:

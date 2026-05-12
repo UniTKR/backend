@@ -50,3 +50,4 @@ logs/
 
 ### Local runtime ###
 docker-data/
+**/src/main/resources/db/seed/local/
