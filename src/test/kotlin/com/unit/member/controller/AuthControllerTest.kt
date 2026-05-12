@@ -2,10 +2,14 @@ package com.unit.member.controller
 
 import com.unit.member.dto.AuthLoginRequest
 import com.unit.member.dto.AuthLoginResponse
+import com.unit.member.dto.AuthLogoutRequest
+import com.unit.member.dto.AuthTokenRefreshRequest
+import com.unit.member.dto.AuthTokenRefreshResponse
 import com.unit.member.dto.AuthenticatedMemberResponse
 import com.unit.member.enums.MemberStatus
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.service.AuthLoginUseCase
+import com.unit.member.service.RefreshTokenUseCase
 import com.unit.platform.error.BusinessException
 import com.unit.platform.error.GlobalExceptionHandler
 import org.junit.jupiter.api.DisplayName
@@ -33,8 +37,11 @@ class AuthControllerTest @Autowired constructor(
     @MockitoBean
     private lateinit var authLoginUseCase: AuthLoginUseCase
 
+    @MockitoBean
+    private lateinit var refreshTokenUseCase: RefreshTokenUseCase
+
     @Test
-    @DisplayName("로그인에 성공하면 Access Token을 반환한다")
+    @DisplayName("로그인에 성공하면 Access Token, Refresh Token을 반환한다")
     fun loginSuccess() {
         val request = AuthLoginRequest(
             email = "test@unit.com",
@@ -44,6 +51,7 @@ class AuthControllerTest @Autowired constructor(
         given(authLoginUseCase.login(request)).willReturn(
             AuthLoginResponse(
                 accessToken = "access-token",
+                refreshToken = "refresh-token",
                 tokenType = "Bearer",
                 expiresIn = 1800L,
                 member = AuthenticatedMemberResponse(
@@ -68,6 +76,7 @@ class AuthControllerTest @Autowired constructor(
             content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
             jsonPath("$.code") { value("OK") }
             jsonPath("$.data.accessToken") { value("access-token") }
+            jsonPath("$.data.refreshToken") { value("refresh-token") }
             jsonPath("$.data.tokenType") { value("Bearer") }
             jsonPath("$.data.expiresIn") { value(1800) }
             jsonPath("$.data.member.memberId") { value(1) }
@@ -163,5 +172,82 @@ class AuthControllerTest @Autowired constructor(
 
         then(authLoginUseCase).should().login(request)
         then(authLoginUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("Refresh Token으로 토큰을 재발급한다")
+    fun refresh() {
+        val request = AuthTokenRefreshRequest(refreshToken = "old-refresh-token")
+
+        given(refreshTokenUseCase.refresh(request)).willReturn(
+            AuthTokenRefreshResponse(
+                accessToken = "new-access-token",
+                refreshToken = "new-refresh-token",
+                expiresIn = 1800L,
+            ),
+        )
+
+        mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+            {
+              "refreshToken": "old-refresh-token"
+            }
+        """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.accessToken") { value("new-access-token") }
+            jsonPath("$.data.refreshToken") { value("new-refresh-token") }
+            jsonPath("$.data.tokenType") { value("Bearer") }
+            jsonPath("$.data.expiresIn") { value(1800) }
+        }
+
+        then(refreshTokenUseCase).should().refresh(request)
+        then(refreshTokenUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("Refresh Token 요청 값이 유효하지 않으면 400을 반환한다")
+    fun refreshWithInvalidRequest() {
+        mockMvc.post("/api/v1/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+            {
+              "refreshToken": ""
+            }
+        """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+            jsonPath("$.code") { value("VALIDATION_FAILED") }
+            jsonPath("$.traceId") { exists() }
+            jsonPath("$.fieldErrors") { isArray() }
+        }
+
+        then(refreshTokenUseCase).shouldHaveNoInteractions()
+    }
+
+    @Test
+    @DisplayName("로그아웃에 성공한다")
+    fun logout() {
+        val request = AuthLogoutRequest(refreshToken = "refresh-token")
+
+        mockMvc.post("/api/v1/auth/logout") {
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+            {
+              "refreshToken": "refresh-token"
+            }
+        """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.code") { value("OK") }
+        }
+
+        then(refreshTokenUseCase).should().logout(request)
+        then(refreshTokenUseCase).shouldHaveNoMoreInteractions()
     }
 }
