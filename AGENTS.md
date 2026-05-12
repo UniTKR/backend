@@ -63,3 +63,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+## Review guidelines
+
+- 모든 코드 리뷰 코멘트와 요약은 한국어로 작성한다.
+- 기술 용어는 필요한 경우 영어 원문을 괄호로 함께 표기한다.
+- 사소한 스타일 지적보다는 버그, 테스트 누락, 보안, 성능, 유지보수성 문제를 우선적으로 리뷰한다.
+- 문제가 있는 경우, 왜 문제인지와 어떻게 고치면 좋은지를 함께 설명한다.
