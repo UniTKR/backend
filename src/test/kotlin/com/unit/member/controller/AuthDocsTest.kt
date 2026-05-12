@@ -6,6 +6,7 @@ import com.unit.member.dto.AuthenticatedMemberResponse
 import com.unit.member.enums.MemberStatus
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.service.AuthLoginUseCase
+import com.unit.member.service.RefreshTokenUseCase
 import com.unit.platform.error.BusinessException
 import com.unit.platform.error.GlobalExceptionHandler
 import org.junit.jupiter.api.DisplayName
@@ -38,6 +39,9 @@ class AuthDocsTest @Autowired constructor(
     @MockitoBean
     private lateinit var authLoginUseCase: AuthLoginUseCase
 
+    @MockitoBean
+    private lateinit var refreshTokenUseCase: RefreshTokenUseCase
+
     @Test
     @DisplayName("로그인 API를 문서화한다")
     fun login() {
@@ -49,6 +53,7 @@ class AuthDocsTest @Autowired constructor(
         given(authLoginUseCase.login(request)).willReturn(
             AuthLoginResponse(
                 accessToken = "access-token",
+                refreshToken = "refresh-token",
                 tokenType = "Bearer",
                 expiresIn = 1800L,
                 member = AuthenticatedMemberResponse(
@@ -73,6 +78,7 @@ class AuthDocsTest @Autowired constructor(
             content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
             jsonPath("$.code") { value("OK") }
             jsonPath("$.data.accessToken") { value("access-token") }
+            jsonPath("$.data.refreshToken") { value("refresh-token") }
             jsonPath("$.data.tokenType") { value("Bearer") }
             jsonPath("$.data.expiresIn") { value(1800) }
             jsonPath("$.data.member.memberId") { value(1) }
@@ -100,6 +106,9 @@ class AuthDocsTest @Autowired constructor(
                         fieldWithPath("data.accessToken")
                             .type(JsonFieldType.STRING)
                             .description("API 인증에 사용할 JWT Access Token"),
+                        fieldWithPath("data.refreshToken")
+                            .type(JsonFieldType.STRING)
+                            .description("Refresh Token"),
                         fieldWithPath("data.tokenType")
                             .type(JsonFieldType.STRING)
                             .description("토큰 타입. 현재는 Bearer입니다."),

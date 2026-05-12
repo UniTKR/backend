@@ -27,7 +27,7 @@ class SecurityConfig(
     private val permitAllEndpoints = arrayOf(
         "/api/v1/schools",
         "/api/v1/members/signup",
-        "/api/v1/auth/login"
+        "/api/v1/auth/**"
     )
 
     @Bean

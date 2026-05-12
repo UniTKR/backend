@@ -190,3 +190,8 @@ tasks.jacocoTestCoverageVerification {
 tasks.check {
     dependsOn(tasks.jacocoTestCoverageVerification)
 }
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+    systemProperty("spring.profiles.active", "test")
+}

@@ -14,12 +14,13 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-@Transactional(readOnly = true)
+@Transactional
 class AuthLoginService(
     private val memberRepository: MemberRepository,
     private val passwordEncoder: PasswordEncoder,
     private val emailHasher: EmailHasher,
-    private val jwtTokenProvider: JwtTokenProvider
+    private val jwtTokenProvider: JwtTokenProvider,
+    private val refreshTokenUseCase: RefreshTokenUseCase
 ) : AuthLoginUseCase {
 
     override fun login(request: AuthLoginRequest): AuthLoginResponse {
@@ -42,6 +43,7 @@ class AuthLoginService(
 
         return AuthLoginResponse(
             accessToken = jwtTokenProvider.createAccessToken(memberId),
+            refreshToken = refreshTokenUseCase.issue(memberId),
             expiresIn = jwtTokenProvider.accessTokenExpiresIn(),
             member = AuthenticatedMemberResponse(
                 memberId = memberId,

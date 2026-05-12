@@ -11,7 +11,6 @@ import com.unit.platform.security.JwtTokenProvider
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.assertj.core.api.Assertions
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
@@ -27,12 +26,14 @@ class AuthLoginServiceTest {
     private val passwordEncoder = mockk<PasswordEncoder>()
     private val emailHasher = mockk<EmailHasher>()
     private val jwtTokenProvider = mockk<JwtTokenProvider>()
+    private val refreshTokenUseCase = mockk<RefreshTokenUseCase>()
 
     private val authLoginService = AuthLoginService(
         memberRepository = memberRepository,
         passwordEncoder = passwordEncoder,
         emailHasher = emailHasher,
         jwtTokenProvider = jwtTokenProvider,
+        refreshTokenUseCase = refreshTokenUseCase
     )
 
     @Test
@@ -45,6 +46,7 @@ class AuthLoginServiceTest {
         val password = "plain-password"
         val passwordHash = member.passwordHash
         val accessToken = "access-token"
+        val refreshToken = "refresh-token"
         val expiresIn = 1800L
 
         every { emailHasher.hash(email) } returns emailHash
@@ -52,12 +54,14 @@ class AuthLoginServiceTest {
         every { passwordEncoder.matches(password, passwordHash) } returns true
         every { jwtTokenProvider.createAccessToken(1L) } returns accessToken
         every { jwtTokenProvider.accessTokenExpiresIn() } returns expiresIn
+        every { refreshTokenUseCase.issue(1L) } returns refreshToken
 
         val request = createLoginRequest(email, password)
 
         val response = authLoginService.login(request)
 
         assertThat(response.accessToken).isEqualTo(accessToken)
+        assertThat(response.refreshToken).isEqualTo(refreshToken)
         assertThat(response.tokenType).isEqualTo("Bearer")
         assertThat(response.expiresIn).isEqualTo(expiresIn)
         assertThat(response.member.memberId).isEqualTo(1L)
@@ -68,6 +72,7 @@ class AuthLoginServiceTest {
         verify(exactly = 1) { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) }
         verify(exactly = 1) { passwordEncoder.matches(password, passwordHash) }
         verify(exactly = 1) { jwtTokenProvider.createAccessToken(1L) }
+        verify(exactly = 1) { refreshTokenUseCase.issue(1L) }
         verify(exactly = 1) { jwtTokenProvider.accessTokenExpiresIn() }
     }
 
@@ -165,12 +170,14 @@ class AuthLoginServiceTest {
         val password = "plain-password"
         val passwordHash = member.passwordHash
         val accessToken = "access-token"
+        val refreshToken = "refresh-token"
         val expiresIn = 1800L
 
         every { emailHasher.hash(email) } returns emailHash
         every { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) } returns member
         every { passwordEncoder.matches(password, passwordHash) } returns true
         every { jwtTokenProvider.createAccessToken(1L) } returns accessToken
+        every { refreshTokenUseCase.issue(1L) } returns refreshToken
         every { jwtTokenProvider.accessTokenExpiresIn() } returns expiresIn
 
         val request = createLoginRequest(email, password)
@@ -178,6 +185,7 @@ class AuthLoginServiceTest {
         val response = authLoginService.login(request)
 
         assertThat(response.accessToken).isEqualTo(accessToken)
+        assertThat(response.refreshToken).isEqualTo(refreshToken)
         assertThat(response.tokenType).isEqualTo("Bearer")
         assertThat(response.expiresIn).isEqualTo(expiresIn)
         assertThat(response.member.memberId).isEqualTo(1L)
@@ -188,6 +196,7 @@ class AuthLoginServiceTest {
         verify(exactly = 1) { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) }
         verify(exactly = 1) { passwordEncoder.matches(password, passwordHash) }
         verify(exactly = 1) { jwtTokenProvider.createAccessToken(1L) }
+        verify(exactly = 1) { refreshTokenUseCase.issue(1L) }
         verify(exactly = 1) { jwtTokenProvider.accessTokenExpiresIn() }
     }
 
@@ -260,12 +269,14 @@ class AuthLoginServiceTest {
         val password = "plain-password"
         val passwordHash = member.passwordHash
         val accessToken = "access-token"
+        val refreshToken = "refresh-token"
         val expiresIn = 1800L
 
         every { emailHasher.hash(email) } returns emailHash
         every { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) } returns member
         every { passwordEncoder.matches(password, passwordHash) } returns true
         every { jwtTokenProvider.createAccessToken(1L) } returns accessToken
+        every { refreshTokenUseCase.issue(1L) } returns refreshToken
         every { jwtTokenProvider.accessTokenExpiresIn() } returns expiresIn
 
         val request = createLoginRequest(email, password)
@@ -273,6 +284,7 @@ class AuthLoginServiceTest {
         val response = authLoginService.login(request)
 
         assertThat(response.accessToken).isEqualTo(accessToken)
+        assertThat(response.refreshToken).isEqualTo(refreshToken)
         assertThat(response.tokenType).isEqualTo("Bearer")
         assertThat(response.expiresIn).isEqualTo(expiresIn)
         assertThat(response.member.memberId).isEqualTo(1L)
@@ -283,6 +295,7 @@ class AuthLoginServiceTest {
         verify(exactly = 1) { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) }
         verify(exactly = 1) { passwordEncoder.matches(password, passwordHash) }
         verify(exactly = 1) { jwtTokenProvider.createAccessToken(1L) }
+        verify(exactly = 1) { refreshTokenUseCase.issue(1L) }
         verify(exactly = 1) { jwtTokenProvider.accessTokenExpiresIn() }
     }
 

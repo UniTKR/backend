@@ -53,4 +53,9 @@ class RefreshToken(
         this.lastUsedAt = now
     }
 
+    fun expire(now: LocalDateTime) {
+        this.status = RefreshTokenStatus.EXPIRED
+        this.revokedAt = now
+    }
+
 }

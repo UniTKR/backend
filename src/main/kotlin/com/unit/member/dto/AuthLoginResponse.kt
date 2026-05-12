@@ -4,6 +4,7 @@ import com.unit.member.enums.MemberStatus
 
 data class AuthLoginResponse(
     val accessToken: String,
+    val refreshToken: String,
     val tokenType: String = "Bearer",
     val expiresIn: Long,
     val member: AuthenticatedMemberResponse,
