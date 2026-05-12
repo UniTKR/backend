@@ -75,4 +75,8 @@ class Member(
         this.deletedAt = now
     }
 
+    fun activate() {
+        this.status = MemberStatus.ACTIVE
+    }
+
 }

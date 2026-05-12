@@ -34,4 +34,26 @@ class TokenHasherTest {
 
         assertThat(hash1).isNotEqualTo(hash2)
     }
+
+    @Test
+    @DisplayName("같은 토큰이면 해시 검증 통과")
+    fun matchesTrue() {
+        val rawToken = "raw-token"
+        val hash = tokenHasher.hash(rawToken)
+
+        val result = tokenHasher.matches(rawToken, hash)
+
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    @DisplayName("다른 토큰이면 해시 검증 실패")
+    fun matchesFalse() {
+        val rawToken = "raw-token"
+        val hash = tokenHasher.hash("other-token")
+
+        val result = tokenHasher.matches(rawToken, hash)
+
+        assertThat(result).isFalse()
+    }
 }
