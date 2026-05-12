@@ -144,6 +144,7 @@ class MemberControllerTest @Autowired constructor(
             "12345678!",
             "pass 123!",
             "pass1!",
+            "abc123가나다라마"
         ],
     )
     @DisplayName("비밀번호 정책을 만족하지 않으면 400을 반환한다")

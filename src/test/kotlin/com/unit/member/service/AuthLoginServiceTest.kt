@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.springframework.security.crypto.password.PasswordEncoder
+import java.time.LocalDateTime
 import kotlin.test.Test
 
 @DisplayName("AuthLoginService 테스트")
@@ -86,6 +87,9 @@ class AuthLoginServiceTest {
 
         every { emailHasher.hash(email) } returns emailHash
         every { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) } returns null
+        every {
+            memberRepository.findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash)
+        } returns null
 
         val request = createLoginRequest(email, password)
 
@@ -98,6 +102,9 @@ class AuthLoginServiceTest {
 
         verify(exactly = 1) { emailHasher.hash(email) }
         verify(exactly = 1) { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) }
+        verify(exactly = 1) {
+            memberRepository.findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash)
+        }
         verify(exactly = 0) { passwordEncoder.matches(any(), any()) }
         verify(exactly = 0) { jwtTokenProvider.createAccessToken(any()) }
         verify(exactly = 0) { jwtTokenProvider.accessTokenExpiresIn() }
@@ -233,14 +240,18 @@ class AuthLoginServiceTest {
     @Test
     @DisplayName("DELETED 회원은 로그인할 수 없다")
     fun loginWithDeletedMember() {
-        val member = createMember(status = MemberStatus.DELETED)
+        val member = createMember()
+        member.delete(LocalDateTime.now())
         val email = "test@unit.com"
         val emailHash = ByteArray(32) { 1 }
         val password = "plain-password"
         val passwordHash = member.passwordHash
 
         every { emailHasher.hash(email) } returns emailHash
-        every { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) } returns member
+        every { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) } returns null
+        every {
+            memberRepository.findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash)
+        } returns member
         every { passwordEncoder.matches(password, passwordHash) } returns true
 
         val request = createLoginRequest(email, password)
@@ -254,6 +265,9 @@ class AuthLoginServiceTest {
 
         verify(exactly = 1) { emailHasher.hash(email) }
         verify(exactly = 1) { memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash) }
+        verify(exactly = 1) {
+            memberRepository.findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash)
+        }
         verify(exactly = 1) { passwordEncoder.matches(password, passwordHash) }
         verify(exactly = 0) { jwtTokenProvider.createAccessToken(any()) }
         verify(exactly = 0) { jwtTokenProvider.accessTokenExpiresIn() }

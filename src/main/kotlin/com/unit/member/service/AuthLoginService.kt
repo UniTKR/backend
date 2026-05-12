@@ -28,6 +28,7 @@ class AuthLoginService(
         val emailHash = emailHasher.hash(request.email)
 
         val member = memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash)
+            ?: memberRepository.findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash)
             ?: throw BusinessException(MemberErrorCode.INVALID_LOGIN_CREDENTIALS)
 
         val passwordHash = member.passwordHash
@@ -35,7 +36,9 @@ class AuthLoginService(
             throw BusinessException(MemberErrorCode.INVALID_LOGIN_CREDENTIALS)
         }
 
-        if (member.status != MemberStatus.ACTIVE && member.status != MemberStatus.PENDING) {
+        if (member.deletedAt != null ||
+            member.status != MemberStatus.ACTIVE && member.status != MemberStatus.PENDING
+        ) {
             throw BusinessException(MemberErrorCode.MEMBER_LOGIN_FORBIDDEN)
         }
 

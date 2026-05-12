@@ -63,6 +63,25 @@ class MemberRepositoryTest @Autowired constructor(
     }
 
     @Test
+    @DisplayName("이메일 해시로 가장 최근 삭제된 회원을 조회한다")
+    fun findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc() {
+        val emailHash = ByteArray(32) { 1 }
+        val oldDeleted = createMember(emailHash = emailHash, nickname = "old-user")
+        oldDeleted.delete(LocalDateTime.of(2026, 5, 8, 12, 0))
+        memberRepository.save(oldDeleted)
+
+        val recentDeleted = createMember(emailHash = emailHash, nickname = "recent-user")
+        recentDeleted.delete(LocalDateTime.of(2026, 5, 9, 12, 0))
+        memberRepository.save(recentDeleted)
+
+        val found = memberRepository
+            .findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash)
+
+        assertThat(found).isNotNull
+        assertThat(found?.nickname).isEqualTo("recent-user")
+    }
+
+    @Test
     @DisplayName("회원 ID와 상태로 삭제되지 않은 회원을 조회한다")
     fun findByIdAndStatusAndDeletedAtIsNull() {
         val saved = memberRepository.save(

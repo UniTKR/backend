@@ -20,4 +20,6 @@ interface MemberRepository : JpaRepository<Member, Long> {
         id: Long,
         statuses: Collection<MemberStatus>,
     ): Member?
+
+    fun findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash: ByteArray): Member?
 }
