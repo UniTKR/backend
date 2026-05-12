@@ -43,6 +43,7 @@ class RefreshTokenService(
         return rawToken
     }
 
+    @Transactional(noRollbackFor = [BusinessException::class])
     override fun refresh(request: AuthTokenRefreshRequest): AuthTokenRefreshResponse {
         val now = LocalDateTime.now()
         val tokenHash = tokenHasher.hash(request.refreshToken)
