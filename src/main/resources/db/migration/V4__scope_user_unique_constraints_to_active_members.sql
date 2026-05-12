@@ -18,7 +18,8 @@ ALTER TABLE users
         ) STORED,
     ADD UNIQUE KEY uk_users_active_email_hash (active_email_hash),
     ADD UNIQUE KEY uk_users_active_phone_hash (active_phone_hash),
-    ADD UNIQUE KEY uk_users_active_nickname (active_nickname);
+    ADD UNIQUE KEY uk_users_active_nickname (active_nickname),
+    ADD INDEX idx_users_email_hash_deleted_at_id (email_hash, deleted_at, id);
 
 ALTER TABLE user_school_verifications
     DROP INDEX uk_user_school_verifications_user_school,
