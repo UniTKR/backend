@@ -14,6 +14,7 @@ import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
 import com.unit.member.util.EmailHasher
 import com.unit.member.util.SchoolEmailVerificationCodeGenerator
+import com.unit.member.util.SchoolEmailVerificationFailureRecorder
 import com.unit.member.util.TokenHasher
 import com.unit.platform.error.BusinessException
 import org.springframework.stereotype.Service
@@ -31,6 +32,7 @@ class SchoolEmailVerificationService(
     private val emailHasher: EmailHasher,
     private val tokenHasher: TokenHasher,
     private val codeGenerator: SchoolEmailVerificationCodeGenerator,
+    private val failureRecorder: SchoolEmailVerificationFailureRecorder
 ) : SchoolEmailVerificationUseCase {
 
     private val verificationExpiresInSeconds = 300L
@@ -108,11 +110,11 @@ class SchoolEmailVerificationService(
         }
 
         if (!verificationCode.expiresAt.isAfter(now)) {
-            verificationCode.expire()
+            failureRecorder.expire(requireNotNull(verificationCode.id))
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED)
         }
 
-        verificationCode.increaseAttempt()
+        failureRecorder.increaseAttempt(requireNotNull(verificationCode.id))
 
         if (!tokenHasher.matches(code, verificationCode.codeHash)) {
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED)

@@ -1,6 +1,9 @@
 package com.unit.member.controller
 
-import com.unit.member.dto.SchoolAuthDto.*
+import com.unit.member.dto.SchoolAuthDto.SchoolEmailVerificationConfirmRequest
+import com.unit.member.dto.SchoolAuthDto.SchoolEmailVerificationConfirmResponse
+import com.unit.member.dto.SchoolAuthDto.SchoolEmailVerificationRequest
+import com.unit.member.dto.SchoolAuthDto.SchoolEmailVerificationResponse
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.service.SchoolEmailVerificationUseCase
@@ -9,6 +12,7 @@ import com.unit.platform.error.GlobalExceptionHandler
 import com.unit.platform.security.JsonAccessDeniedHandler
 import com.unit.platform.security.JsonAuthenticationEntryPoint
 import com.unit.platform.security.SecurityConfig
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.mockito.BDDMockito.given
 import org.mockito.BDDMockito.then
@@ -16,9 +20,10 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -37,7 +42,7 @@ import kotlin.test.Test
 )
 @DisplayName("SchoolEmailVerificationController 테스트")
 class SchoolEmailVerificationControllerTest @Autowired constructor(
-    private val mockMvc: MockMvc
+    private val mockMvc: MockMvc,
 ) {
 
     @MockitoBean
@@ -45,6 +50,17 @@ class SchoolEmailVerificationControllerTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var jwtDecoder: JwtDecoder
+
+    @BeforeEach
+    fun setUp() {
+        given(jwtDecoder.decode("access-token")).willReturn(
+            Jwt.withTokenValue("access-token")
+                .header("alg", "none")
+                .subject("1")
+                .claim("memberId", 1L)
+                .build(),
+        )
+    }
 
     @Test
     @DisplayName("학교 이메일 인증 요청에 성공하면 200 OK를 반환한다")
@@ -64,7 +80,7 @@ class SchoolEmailVerificationControllerTest @Autowired constructor(
 
         mockMvc.perform(
             post("/api/v1/school-email-verifications/request")
-                .with(jwt().jwt { it.subject("1").claim("memberId", 1L) })
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .content(
@@ -105,7 +121,7 @@ class SchoolEmailVerificationControllerTest @Autowired constructor(
 
         mockMvc.perform(
             post("/api/v1/school-email-verifications/confirm")
-                .with(jwt().jwt { it.subject("1").claim("memberId", 1L) })
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .content(
@@ -133,7 +149,7 @@ class SchoolEmailVerificationControllerTest @Autowired constructor(
     fun requestWithInvalidRequest() {
         mockMvc.perform(
             post("/api/v1/school-email-verifications/request")
-                .with(jwt().jwt { it.subject("1").claim("memberId", 1L) })
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .content(
@@ -165,7 +181,7 @@ class SchoolEmailVerificationControllerTest @Autowired constructor(
 
         mockMvc.perform(
             post("/api/v1/school-email-verifications/request")
-                .with(jwt().jwt { it.subject("1").claim("memberId", 1L) })
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .content(

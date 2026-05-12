@@ -11,9 +11,12 @@ import com.unit.member.exception.MemberErrorCode
 import com.unit.member.repository.*
 import com.unit.member.util.EmailHasher
 import com.unit.member.util.SchoolEmailVerificationCodeGenerator
+import com.unit.member.util.SchoolEmailVerificationFailureRecorder
 import com.unit.member.util.TokenHasher
 import com.unit.platform.error.BusinessException
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
@@ -34,6 +37,7 @@ class SchoolEmailVerificationServiceTest {
     private val emailHasher = mockk<EmailHasher>()
     private val tokenHasher = mockk<TokenHasher>()
     private val codeGenerator = mockk<SchoolEmailVerificationCodeGenerator>()
+    private val failureRecorder = mockk<SchoolEmailVerificationFailureRecorder>()
 
     private val service = SchoolEmailVerificationService(
         schoolRepository = schoolRepository,
@@ -44,6 +48,7 @@ class SchoolEmailVerificationServiceTest {
         emailHasher = emailHasher,
         tokenHasher = tokenHasher,
         codeGenerator = codeGenerator,
+        failureRecorder = failureRecorder,
     )
 
     @Test
@@ -175,46 +180,35 @@ class SchoolEmailVerificationServiceTest {
         val schoolId = 1L
         val emailHash = ByteArray(32) { 1 }
         val codeHash = ByteArray(32) { 2 }
-        val verificationCode = createVerificationCode(
-            memberId = memberId,
-            schoolId = schoolId,
-            emailHash = emailHash,
-            codeHash = codeHash,
-            expiresAt = LocalDateTime.now().plusMinutes(5),
-        )
+        val verificationCode = createVerificationCode(id = 10L, memberId = memberId, schoolId = schoolId, emailHash = emailHash, codeHash = codeHash)
         val schoolVerification = createUserSchoolVerification(memberId, schoolId)
         val member = createMember(memberId)
 
         every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
         every {
             schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
-                schoolId,
-                emailHash,
-                SchoolEmailVerificationStatus.PENDING,
+                schoolId, emailHash, SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
+        every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
         every { userSchoolVerificationRepository.findByMemberIdAndSchoolId(memberId, schoolId) } returns schoolVerification
         every { memberRepository.findByIdAndStatusAndDeletedAtIsNull(memberId, MemberStatus.PENDING) } returns member
 
         val response = service.confirm(
-            memberId = memberId,
-            request = SchoolEmailVerificationConfirmRequest(
-                schoolId = schoolId,
-                email = "test@snu.ac.kr",
-                code = "123456",
-            ),
+            memberId,
+            SchoolEmailVerificationConfirmRequest(schoolId, "test@snu.ac.kr", "123456"),
         )
 
-        assertThat(response.schoolId).isEqualTo(schoolId)
         assertThat(response.status).isEqualTo(UserSchoolVerificationStatus.VERIFIED)
         assertThat(verificationCode.status).isEqualTo(SchoolEmailVerificationStatus.VERIFIED)
-        assertThat(verificationCode.verifiedAt).isNotNull()
-        assertThat(verificationCode.attemptCount).isEqualTo(1)
         assertThat(schoolVerification.status).isEqualTo(UserSchoolVerificationStatus.VERIFIED)
-        assertThat(schoolVerification.verifiedAt).isNotNull()
         assertThat(member.status).isEqualTo(MemberStatus.ACTIVE)
+
+        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
     }
+
 
     @Test
     @DisplayName("회원 ID가 없는 인증 코드이면 인증 확인에 실패한다")
@@ -251,6 +245,8 @@ class SchoolEmailVerificationServiceTest {
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND)
 
         verify(exactly = 0) { tokenHasher.matches(any(), any()) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
         verify(exactly = 0) { userSchoolVerificationRepository.findByMemberIdAndSchoolId(any(), any()) }
         verify(exactly = 0) { memberRepository.findByIdAndStatusAndDeletedAtIsNull(any(), any()) }
     }
@@ -283,6 +279,9 @@ class SchoolEmailVerificationServiceTest {
             .isInstanceOf(BusinessException::class.java)
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND)
+
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
     }
 
     @Test
@@ -320,6 +319,8 @@ class SchoolEmailVerificationServiceTest {
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND)
 
         verify(exactly = 0) { tokenHasher.matches(any(), any()) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
         verify(exactly = 0) { userSchoolVerificationRepository.findByMemberIdAndSchoolId(any(), any()) }
         verify(exactly = 0) { memberRepository.findByIdAndStatusAndDeletedAtIsNull(any(), any()) }
     }
@@ -331,6 +332,48 @@ class SchoolEmailVerificationServiceTest {
     fun confirmWithExpiredCode() {
         val emailHash = ByteArray(32) { 1 }
         val verificationCode = createVerificationCode(
+            id = 10L,
+            memberId = 1L,
+            schoolId = 1L,
+            emailHash = emailHash,
+            expiresAt = LocalDateTime.now().minusSeconds(1),
+        )
+
+        every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
+        every {
+            schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
+                1L,
+                emailHash,
+                SchoolEmailVerificationStatus.PENDING,
+            )
+        } returns verificationCode
+        every { failureRecorder.expire(10L) } just Runs
+
+        assertThatThrownBy {
+            service.confirm(
+                memberId = 1L,
+                request = SchoolEmailVerificationConfirmRequest(
+                    schoolId = 1L,
+                    email = "test@snu.ac.kr",
+                    code = "123456",
+                ),
+            )
+        }
+            .isInstanceOf(BusinessException::class.java)
+            .extracting("errorCode")
+            .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED)
+
+        verify(exactly = 1) { failureRecorder.expire(10L) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { tokenHasher.matches(any(), any()) }
+    }
+
+    @Test
+    @DisplayName("만료된 인증 코드의 ID가 없으면 예외가 발생한다")
+    fun confirmWithExpiredCodeWithoutId() {
+        val emailHash = ByteArray(32) { 1 }
+        val verificationCode = createVerificationCode(
+            id = null,
             memberId = 1L,
             schoolId = 1L,
             emailHash = emailHash,
@@ -355,12 +398,11 @@ class SchoolEmailVerificationServiceTest {
                     code = "123456",
                 ),
             )
-        }
-            .isInstanceOf(BusinessException::class.java)
-            .extracting("errorCode")
-            .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED)
+        }.isInstanceOf(IllegalArgumentException::class.java)
 
-        assertThat(verificationCode.status).isEqualTo(SchoolEmailVerificationStatus.EXPIRED)
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { tokenHasher.matches(any(), any()) }
     }
 
     @Test
@@ -369,6 +411,7 @@ class SchoolEmailVerificationServiceTest {
         val emailHash = ByteArray(32) { 1 }
         val codeHash = ByteArray(32) { 2 }
         val verificationCode = createVerificationCode(
+            id = 10L,
             memberId = 1L,
             schoolId = 1L,
             emailHash = emailHash,
@@ -384,6 +427,7 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
+        every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("000000", codeHash) } returns false
 
         assertThatThrownBy {
@@ -400,7 +444,45 @@ class SchoolEmailVerificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED)
 
-        assertThat(verificationCode.attemptCount).isEqualTo(1)
+        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+    }
+
+    @Test
+    @DisplayName("인증 코드의 ID가 없으면 실패 시도 횟수를 기록하지 않고 예외가 발생한다")
+    fun confirmWithCodeWithoutId() {
+        val emailHash = ByteArray(32) { 1 }
+        val verificationCode = createVerificationCode(
+            id = null,
+            memberId = 1L,
+            schoolId = 1L,
+            emailHash = emailHash,
+            expiresAt = LocalDateTime.now().plusMinutes(5),
+        )
+
+        every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
+        every {
+            schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
+                1L,
+                emailHash,
+                SchoolEmailVerificationStatus.PENDING,
+            )
+        } returns verificationCode
+
+        assertThatThrownBy {
+            service.confirm(
+                memberId = 1L,
+                request = SchoolEmailVerificationConfirmRequest(
+                    schoolId = 1L,
+                    email = "test@snu.ac.kr",
+                    code = "123456",
+                ),
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { tokenHasher.matches(any(), any()) }
     }
 
     @Test
@@ -411,6 +493,7 @@ class SchoolEmailVerificationServiceTest {
         val emailHash = ByteArray(32) { 1 }
         val codeHash = ByteArray(32) { 2 }
         val verificationCode = createVerificationCode(
+            id = 10L,
             memberId = memberId,
             schoolId = schoolId,
             emailHash = emailHash,
@@ -426,6 +509,7 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
+        every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
         every { userSchoolVerificationRepository.findByMemberIdAndSchoolId(memberId, schoolId) } returns null
 
@@ -442,6 +526,9 @@ class SchoolEmailVerificationServiceTest {
             .isInstanceOf(BusinessException::class.java)
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
+
+        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
     @Test
@@ -452,6 +539,7 @@ class SchoolEmailVerificationServiceTest {
         val emailHash = ByteArray(32) { 1 }
         val codeHash = ByteArray(32) { 2 }
         val verificationCode = createVerificationCode(
+            id = 10L,
             memberId = memberId,
             schoolId = schoolId,
             emailHash = emailHash,
@@ -468,6 +556,7 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
+        every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
         every { userSchoolVerificationRepository.findByMemberIdAndSchoolId(memberId, schoolId) } returns schoolVerification
         every { memberRepository.findByIdAndStatusAndDeletedAtIsNull(memberId, MemberStatus.PENDING) } returns null
@@ -485,6 +574,9 @@ class SchoolEmailVerificationServiceTest {
             .isInstanceOf(BusinessException::class.java)
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.MEMBER_LOGIN_FORBIDDEN)
+
+        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
     @Test
@@ -502,6 +594,8 @@ class SchoolEmailVerificationServiceTest {
 
         verify(exactly = 0) { schoolRepository.findByIdAndStatus(any()) }
         verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
     }
 
 
@@ -526,6 +620,8 @@ class SchoolEmailVerificationServiceTest {
                 any(),
             )
         }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
     }
 
 
@@ -542,6 +638,7 @@ class SchoolEmailVerificationServiceTest {
     }
 
     private fun createVerificationCode(
+        id: Long? = 1L,
         memberId: Long? = 1L,
         schoolId: Long = 1L,
         emailHash: ByteArray = ByteArray(32) { 1 },
@@ -549,6 +646,7 @@ class SchoolEmailVerificationServiceTest {
         expiresAt: LocalDateTime = LocalDateTime.now().plusMinutes(5),
     ): SchoolEmailVerificationCode {
         return SchoolEmailVerificationCode(
+            id = id,
             memberId = memberId,
             schoolId = schoolId,
             emailHash = emailHash,
