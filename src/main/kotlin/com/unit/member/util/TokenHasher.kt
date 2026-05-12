@@ -11,4 +11,8 @@ class TokenHasher {
             .getInstance("SHA-256")
             .digest(token.toByteArray(Charsets.UTF_8))
     }
+
+    fun matches(rawToken: String, tokenHash: ByteArray): Boolean {
+        return hash(rawToken).contentEquals(tokenHash)
+    }
 }

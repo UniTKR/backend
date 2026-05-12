@@ -25,6 +25,7 @@ class SecurityConfig(
     )
 
     private val permitAllEndpoints = arrayOf(
+        "/docs/**",
         "/api/v1/schools",
         "/api/v1/members/signup",
         "/api/v1/auth/**"
@@ -51,7 +52,7 @@ class SecurityConfig(
                 auth
                     .requestMatchers(*actuatorEndpoints).permitAll()
                     .requestMatchers(*permitAllEndpoints).permitAll()
-                    .anyRequest().permitAll()
+                    .anyRequest().authenticated()
             }
         return http.build()
     }
