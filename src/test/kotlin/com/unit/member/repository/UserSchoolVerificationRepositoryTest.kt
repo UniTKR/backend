@@ -4,8 +4,10 @@ import com.unit.member.entity.UserSchoolVerification
 import com.unit.member.enums.UserSchoolVerificationMethod
 import com.unit.member.enums.UserSchoolVerificationStatus
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.test.context.TestPropertySource
@@ -62,7 +64,7 @@ class UserSchoolVerificationRepositoryTest @Autowired constructor(
         )
         userSchoolVerificationRepository.save(
             createUserSchoolVerification(
-                memberId = memberId,
+                memberId = 2L,
                 schoolId = 2L,
                 status = UserSchoolVerificationStatus.PENDING,
             ),
@@ -89,6 +91,21 @@ class UserSchoolVerificationRepositoryTest @Autowired constructor(
         val found = userSchoolVerificationRepository.findByMemberIdAndStatus(memberId)
 
         assertThat(found).isNull()
+    }
+
+    @Test
+    @DisplayName("한 회원은 하나의 학교 인증만 가질 수 있다")
+    fun saveWithDuplicatedMemberId() {
+        val memberId = 1L
+        userSchoolVerificationRepository.saveAndFlush(
+            createUserSchoolVerification(memberId = memberId, schoolId = 1L),
+        )
+
+        assertThatThrownBy {
+            userSchoolVerificationRepository.saveAndFlush(
+                createUserSchoolVerification(memberId = memberId, schoolId = 2L),
+            )
+        }.isInstanceOf(DataIntegrityViolationException::class.java)
     }
 
     @Test

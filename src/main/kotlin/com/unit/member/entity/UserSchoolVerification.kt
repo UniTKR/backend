@@ -8,7 +8,15 @@ import org.hibernate.annotations.UpdateTimestamp
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "user_school_verifications")
+@Table(
+    name = "user_school_verifications",
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_user_school_verifications_user",
+            columnNames = ["user_id"],
+        ),
+    ],
+)
 class UserSchoolVerification(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

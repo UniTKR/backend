@@ -13,13 +13,13 @@ class Member(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 
-    @Column(name = "email_hash", columnDefinition = "BINARY(32)", unique = true)
+    @Column(name = "email_hash", columnDefinition = "BINARY(32)")
     var emailHash: ByteArray? = null,
 
     @Column(name = "email_encrypted", columnDefinition = "VARBINARY(512)")
     var emailEncrypted: ByteArray? = null,
 
-    @Column(name = "phone_hash", columnDefinition = "BINARY(32)", unique = true)
+    @Column(name = "phone_hash", columnDefinition = "BINARY(32)")
     var phoneHash: ByteArray? = null,
 
     @Column(name = "password_hash", length = 100)
