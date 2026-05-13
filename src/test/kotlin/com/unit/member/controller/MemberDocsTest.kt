@@ -1,13 +1,20 @@
 package com.unit.member.controller
 
+import com.unit.member.dto.MemberMeResponse
+import com.unit.member.dto.MemberSchoolResponse
 import com.unit.member.dto.MemberSignupRequest
 import com.unit.member.dto.MemberSignupResponse
 import com.unit.member.enums.MemberStatus
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
+import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.platform.error.BusinessException
 import com.unit.platform.error.GlobalExceptionHandler
+import com.unit.platform.security.JsonAccessDeniedHandler
+import com.unit.platform.security.JsonAuthenticationEntryPoint
+import com.unit.platform.security.SecurityConfig
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.mockito.BDDMockito.given
@@ -16,20 +23,31 @@ import org.springframework.boot.restdocs.test.autoconfigure.AutoConfigureRestDoc
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.restdocs.headers.HeaderDocumentation.headerWithName
+import org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders
 import org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document
 import org.springframework.restdocs.payload.JsonFieldType
 import org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath
 import org.springframework.restdocs.payload.PayloadDocumentation.requestFields
 import org.springframework.restdocs.payload.PayloadDocumentation.responseFields
+import org.springframework.security.oauth2.jwt.Jwt
+import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 
 @WebMvcTest(MemberController::class)
-@AutoConfigureMockMvc(addFilters = false)
+@AutoConfigureMockMvc
 @AutoConfigureRestDocs
-@Import(GlobalExceptionHandler::class)
+@Import(
+    GlobalExceptionHandler::class,
+    SecurityConfig::class,
+    JsonAuthenticationEntryPoint::class,
+    JsonAccessDeniedHandler::class,
+)
 @DisplayName("회원 API 문서화 테스트")
 class MemberDocsTest @Autowired constructor(
     private val mockMvc: MockMvc,
@@ -37,6 +55,23 @@ class MemberDocsTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var memberSignupUseCase: MemberSignupUseCase
+
+    @MockitoBean
+    private lateinit var memberQueryUseCase: MemberQueryUseCase
+
+    @MockitoBean
+    private lateinit var jwtDecoder: JwtDecoder
+
+    @BeforeEach
+    fun setUp() {
+        given(jwtDecoder.decode("access-token")).willReturn(
+            Jwt.withTokenValue("access-token")
+                .header("alg", "none")
+                .subject("1")
+                .claim("memberId", 1L)
+                .build(),
+        )
+    }
 
     @Test
     @DisplayName("회원가입 API를 문서화한다")
@@ -229,6 +264,92 @@ class MemberDocsTest @Autowired constructor(
                             .type(JsonFieldType.ARRAY)
                             .optional()
                             .description("필드 검증 실패 목록. 중복 이메일 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("내 정보 조회 API를 문서화한다")
+    fun getMe() {
+        given(memberQueryUseCase.getMe(1L)).willReturn(
+            MemberMeResponse(
+                memberId = 1L,
+                nickname = "unit_user",
+                profileImageUrl = "profile_image_url",
+                status = MemberStatus.ACTIVE,
+                trustScore = 100,
+                school = MemberSchoolResponse(
+                    schoolId = 1L,
+                    name = "Unit_University",
+                    verificationStatus = UserSchoolVerificationStatus.VERIFIED,
+                ),
+            ),
+        )
+
+        mockMvc.get("/api/v1/members/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.memberId") { value(1) }
+            jsonPath("$.data.nickname") { value("unit_user") }
+            jsonPath("$.data.profileImageUrl") { value("profile_image_url") }
+            jsonPath("$.data.status") { value("ACTIVE") }
+            jsonPath("$.data.trustScore") { value(100) }
+            jsonPath("$.data.school.schoolId") { value(1) }
+            jsonPath("$.data.school.name") { value("Unit_University") }
+            jsonPath("$.data.school.verificationStatus") { value("VERIFIED") }
+        }.andDo {
+            handle(
+                document(
+                    "member/profile-get",
+                    requestHeaders(
+                        headerWithName(HttpHeaders.AUTHORIZATION)
+                            .description("Bearer Access Token"),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 응답 코드"),
+                        fieldWithPath("data")
+                            .type(JsonFieldType.OBJECT)
+                            .description("내 정보 조회 결과"),
+                        fieldWithPath("data.memberId")
+                            .type(JsonFieldType.NUMBER)
+                            .description("회원 ID"),
+                        fieldWithPath("data.nickname")
+                            .type(JsonFieldType.STRING)
+                            .description("회원 닉네임"),
+                        fieldWithPath("data.profileImageUrl")
+                            .type(JsonFieldType.STRING)
+                            .optional()
+                            .description("프로필 이미지 URL. 값이 없으면 응답에서 생략됩니다."),
+                        fieldWithPath("data.status")
+                            .type(JsonFieldType.STRING)
+                            .description("회원 상태"),
+                        fieldWithPath("data.trustScore")
+                            .type(JsonFieldType.NUMBER)
+                            .description("회원 신뢰 점수"),
+                        fieldWithPath("data.school")
+                            .type(JsonFieldType.OBJECT)
+                            .optional()
+                            .description("학교 인증 정보. 인증 정보가 없으면 응답에서 생략됩니다."),
+                        fieldWithPath("data.school.schoolId")
+                            .type(JsonFieldType.NUMBER)
+                            .optional()
+                            .description("인증된 학교 ID"),
+                        fieldWithPath("data.school.name")
+                            .type(JsonFieldType.STRING)
+                            .optional()
+                            .description("인증된 학교 이름"),
+                        fieldWithPath("data.school.verificationStatus")
+                            .type(JsonFieldType.STRING)
+                            .optional()
+                            .description("학교 인증 상태"),
                     ),
                 ),
             )

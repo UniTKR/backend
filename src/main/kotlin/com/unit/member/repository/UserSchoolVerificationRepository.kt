@@ -20,4 +20,6 @@ interface UserSchoolVerificationRepository : JpaRepository<UserSchoolVerificatio
         schoolId: Long,
         status: UserSchoolVerificationStatus = UserSchoolVerificationStatus.VERIFIED,
     ): Boolean
+
+    fun findByMemberId(memberId: Long): UserSchoolVerification?
 }
