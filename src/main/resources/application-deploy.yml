@@ -23,6 +23,19 @@ spring:
     locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
 
+  mail:
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:true}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:true}
+            required: ${SMTP_STARTTLS_REQUIRED:true}
+
 logging:
   level:
     com.unit: ${APP_LOG_LEVEL:INFO}
@@ -37,6 +50,11 @@ unit:
       access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS}
     refresh-token:
       expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS}
+
+  mail:
+    enabled: ${MAIL_ENABLED:true}
+    from-address: ${MAIL_FROM_ADDRESS}
+    from-name: ${MAIL_FROM_NAME:UniTT}
 
 management:
   endpoints:

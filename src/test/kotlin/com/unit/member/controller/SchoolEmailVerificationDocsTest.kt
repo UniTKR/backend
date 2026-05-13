@@ -255,6 +255,57 @@ class SchoolEmailVerificationDocsTest @Autowired constructor(
     }
 
     @Test
+    @DisplayName("학교 이메일 인증 요청 학교 없음 응답을 문서화한다")
+    fun requestVerificationSchoolNotFound() {
+        val request = SchoolEmailVerificationRequest(
+            schoolId = 999L,
+            email = "test@snu.ac.kr",
+        )
+
+        given(schoolEmailVerificationUseCase.request(1L, request))
+            .willThrow(BusinessException(MemberErrorCode.SCHOOL_NOT_FOUND))
+
+        mockMvc.perform(
+            post("/api/v1/school-email-verifications/request")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "schoolId": 999,
+                      "email": "test@snu.ac.kr"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isNotFound)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("SCHOOL_NOT_FOUND"))
+            .andExpect(jsonPath("$.traceId").exists())
+            .andDo(
+                document(
+                    "member/school-email-verifications/request/school-not-found",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 학교 없음 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+    }
+
+    @Test
     @DisplayName("학교 이메일 인증 확인 API를 문서화한다")
     fun confirmVerification() {
         val request = SchoolEmailVerificationConfirmRequest(
@@ -392,6 +443,112 @@ class SchoolEmailVerificationDocsTest @Autowired constructor(
     }
 
     @Test
+    @DisplayName("학교 이메일 인증 코드 없음 응답을 문서화한다")
+    fun confirmVerificationCodeNotFound() {
+        val request = SchoolEmailVerificationConfirmRequest(
+            schoolId = 1L,
+            email = "test@snu.ac.kr",
+            code = "123456",
+        )
+
+        given(schoolEmailVerificationUseCase.confirm(1L, request))
+            .willThrow(BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND))
+
+        mockMvc.perform(
+            post("/api/v1/school-email-verifications/confirm")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "schoolId": 1,
+                      "email": "test@snu.ac.kr",
+                      "code": "123456"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isNotFound)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND"))
+            .andExpect(jsonPath("$.traceId").exists())
+            .andDo(
+                document(
+                    "member/school-email-verifications/confirm/code-not-found",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 인증 코드 없음 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+    }
+
+    @Test
+    @DisplayName("학교 이메일 인증 코드 만료 응답을 문서화한다")
+    fun confirmVerificationCodeExpired() {
+        val request = SchoolEmailVerificationConfirmRequest(
+            schoolId = 1L,
+            email = "test@snu.ac.kr",
+            code = "123456",
+        )
+
+        given(schoolEmailVerificationUseCase.confirm(1L, request))
+            .willThrow(BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED))
+
+        mockMvc.perform(
+            post("/api/v1/school-email-verifications/confirm")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "schoolId": 1,
+                      "email": "test@snu.ac.kr",
+                      "code": "123456"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED"))
+            .andExpect(jsonPath("$.traceId").exists())
+            .andDo(
+                document(
+                    "member/school-email-verifications/confirm/code-expired",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 인증 코드 만료 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+    }
+
+    @Test
     @DisplayName("학교 이메일 인증 코드 불일치 응답을 문서화한다")
     fun confirmVerificationCodeMismatched() {
         val request = SchoolEmailVerificationConfirmRequest(
@@ -439,6 +596,59 @@ class SchoolEmailVerificationDocsTest @Autowired constructor(
                             .type(JsonFieldType.ARRAY)
                             .optional()
                             .description("필드 검증 실패 목록. 코드 불일치 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+    }
+
+    @Test
+    @DisplayName("학교 인증 정보 없음 응답을 문서화한다")
+    fun confirmVerificationSchoolVerificationNotFound() {
+        val request = SchoolEmailVerificationConfirmRequest(
+            schoolId = 1L,
+            email = "test@snu.ac.kr",
+            code = "123456",
+        )
+
+        given(schoolEmailVerificationUseCase.confirm(1L, request))
+            .willThrow(BusinessException(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND))
+
+        mockMvc.perform(
+            post("/api/v1/school-email-verifications/confirm")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "schoolId": 1,
+                      "email": "test@snu.ac.kr",
+                      "code": "123456"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().isNotFound)
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("SCHOOL_VERIFICATION_NOT_FOUND"))
+            .andExpect(jsonPath("$.traceId").exists())
+            .andDo(
+                document(
+                    "member/school-email-verifications/confirm/school-verification-not-found",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 학교 인증 정보 없음 응답에서는 내려가지 않습니다."),
                     ),
                 ),
             )

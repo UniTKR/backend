@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>UniTT 이메일 인증</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+        table {
+            border-spacing: 0;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        img {
+            -ms-interpolation-mode: bicubic;
+            border: 0;
+            outline: none;
+            text-decoration: none;
+        }
+        a {
+            text-decoration: none;
+        }
+
+        /* OTP 길게 눌러 복사 허용 */
+        .otp-code {
+            -webkit-user-select: all;
+            -moz-user-select: all;
+            -ms-user-select: all;
+            user-select: all;
+        }
+
+        /* 모바일 대응 */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+            }
+            .px-mobile {
+                padding-left: 28px !important;
+                padding-right: 28px !important;
+            }
+            .py-mobile {
+                padding-top: 40px !important;
+                padding-bottom: 32px !important;
+            }
+            .otp-code {
+                font-size: 38px !important;
+                letter-spacing: 8px !important;
+            }
+        }
+
+        /* 다크 모드 (iOS Mail, Apple Mail 등) */
+        @media (prefers-color-scheme: dark) {
+            .bg-page { background-color: #0F172A !important; }
+            .bg-card { background-color: #1E293B !important; }
+            .border-card { border-color: #334155 !important; }
+            .text-primary { color: #F1F5F9 !important; }
+            .text-secondary { color: #CBD5E1 !important; }
+            .text-muted { color: #94A3B8 !important; }
+            .text-brand { color: #A5B4FC !important; }
+            .otp-bg { background-color: #312E81 !important; border-color: #4338CA !important; }
+            .otp-code { color: #C7D2FE !important; }
+            .info-box { background-color: #1E293B !important; border-color: #334155 !important; }
+            .info-box-text { color: #CBD5E1 !important; }
+            .info-box-title { color: #E2E8F0 !important; }
+            .divider { border-color: #334155 !important; }
+            .footer-divider { border-color: #334155 !important; }
+        }
+    </style>
+</head>
+<body class="bg-page" style="margin:0; padding:0; background-color:#F8FAFC; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif;">
+
+<!-- 프리헤더 (메일 리스트 미리보기, 숨김) -->
+<div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#F8FAFC;">
+    UniTT 이메일 인증번호 {{code}} · 유효시간 {{expiresInMinutes}}분 · 본인이 요청하지 않았다면 무시해주세요
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg-page" style="background-color:#F8FAFC; padding:48px 16px;">
+    <tr>
+        <td align="center">
+
+            <!-- 컨테이너 -->
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px; max-width:600px;">
+
+                <!-- 헤더: 브랜드 -->
+                <tr>
+                    <td align="center" style="padding:0 0 28px 0;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td class="text-brand" style="font-size:26px; font-weight:800; color:#4F46E5; letter-spacing:-0.8px; line-height:1;">
+                                    UniTT
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+                <!-- 메인 카드 -->
+                <tr>
+                    <td class="bg-card border-card" style="background-color:#FFFFFF; border:1px solid #E2E8F0; border-radius:20px; padding:0; overflow:hidden; box-shadow:0 1px 3px rgba(15, 23, 42, 0.04);">
+
+                        <!-- 카드 상단 그라데이션 액센트 바 -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="height:5px; background-color:#4F46E5; background-image:linear-gradient(90deg, #4F46E5 0%, #7C3AED 100%); line-height:5px; font-size:5px;">&nbsp;</td>
+                            </tr>
+                        </table>
+
+                        <!-- 본문 -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td class="px-mobile py-mobile" style="padding:56px 60px 40px 60px;">
+
+                                    <!-- 카테고리 라벨 -->
+                                    <p class="text-brand" style="margin:0 0 12px 0; font-size:12px; font-weight:700; color:#4F46E5; letter-spacing:1.5px; text-transform:uppercase;">
+                                        이메일 인증
+                                    </p>
+
+                                    <!-- 제목 -->
+                                    <h1 class="text-primary" style="margin:0 0 14px 0; font-size:26px; font-weight:700; color:#0F172A; line-height:1.3; letter-spacing:-0.5px;">
+                                        인증번호를 입력해주세요
+                                    </h1>
+
+                                    <!-- 설명 -->
+                                    <p class="text-secondary" style="margin:0 0 36px 0; font-size:15px; color:#475569; line-height:1.65;">
+                                        UniTT 회원가입을 위해 아래 인증번호를 앱에 입력해주세요.<br>
+                                        검증된 학생만 거래할 수 있도록 학교 이메일을 확인하고 있어요.
+                                    </p>
+
+                                    <!-- OTP 박스 -->
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td align="center" class="otp-bg" style="background-color:#EEF2FF; border:1px solid #C7D2FE; border-radius:16px; padding:32px 16px;">
+                                                <div class="text-muted" style="font-size:11px; font-weight:700; color:#6366F1; letter-spacing:2px; text-transform:uppercase; margin-bottom:14px;">
+                                                    Verification Code
+                                                </div>
+                                                <div class="otp-code" style="font-family:'SF Mono', 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace; font-size:44px; font-weight:700; color:#4F46E5; letter-spacing:14px; line-height:1; padding-left:14px;">
+                                                    {{code}}
+                                                </div>
+                                                <div style="margin-top:20px;">
+                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center">
+                                                        <tr>
+                                                            <td style="font-size:13px; color:#6366F1; padding-right:6px;">
+                                                                <span style="display:inline-block; width:6px; height:6px; background-color:#F59E0B; border-radius:50%; vertical-align:middle;"></span>
+                                                            </td>
+                                                            <td class="text-muted" style="font-size:13px; color:#6366F1; font-weight:500; vertical-align:middle;">
+                                                                {{expiresInMinutes}}분 동안 유효해요
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- 사용 방법 -->
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:36px;">
+                                        <tr>
+                                            <td>
+                                                <p class="text-primary" style="margin:0 0 14px 0; font-size:14px; font-weight:600; color:#0F172A;">
+                                                    사용 방법
+                                                </p>
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td style="padding-bottom:8px;">
+                                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                                <tr>
+                                                                    <td valign="top" style="width:24px; padding-top:1px;">
+                                                                        <div style="width:20px; height:20px; background-color:#EEF2FF; border-radius:50%; text-align:center; line-height:20px; font-size:11px; font-weight:700; color:#4F46E5;">1</div>
+                                                                    </td>
+                                                                    <td class="text-secondary" style="font-size:14px; color:#475569; line-height:1.6; padding-left:10px;">
+                                                                        UniTT 앱의 인증번호 입력 화면으로 돌아가요
+                                                                    </td>
+                                                                </tr>
+                                                            </table>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding-bottom:8px;">
+                                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                                <tr>
+                                                                    <td valign="top" style="width:24px; padding-top:1px;">
+                                                                        <div style="width:20px; height:20px; background-color:#EEF2FF; border-radius:50%; text-align:center; line-height:20px; font-size:11px; font-weight:700; color:#4F46E5;">2</div>
+                                                                    </td>
+                                                                    <td class="text-secondary" style="font-size:14px; color:#475569; line-height:1.6; padding-left:10px;">
+                                                                        위 6자리 숫자를 입력해요
+                                                                    </td>
+                                                                </tr>
+                                                            </table>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>
+                                                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                                <tr>
+                                                                    <td valign="top" style="width:24px; padding-top:1px;">
+                                                                        <div style="width:20px; height:20px; background-color:#EEF2FF; border-radius:50%; text-align:center; line-height:20px; font-size:11px; font-weight:700; color:#4F46E5;">3</div>
+                                                                    </td>
+                                                                    <td class="text-secondary" style="font-size:14px; color:#475569; line-height:1.6; padding-left:10px;">
+                                                                        인증이 완료되면 학교 피드로 진입해요
+                                                                    </td>
+                                                                </tr>
+                                                            </table>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- 구분선 -->
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:36px; margin-bottom:24px;">
+                                        <tr>
+                                            <td class="divider" style="border-top:1px solid #E2E8F0; line-height:1px; font-size:1px;">&nbsp;</td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- 보안 안내 (차분한 톤) -->
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td class="info-box" style="background-color:#F8FAFC; border:1px solid #E2E8F0; border-radius:12px; padding:18px 22px;">
+                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                                    <tr>
+                                                        <td valign="top" style="width:24px; padding-top:1px;">
+                                                            <div style="width:18px; height:18px; background-color:#4F46E5; border-radius:50%; text-align:center; line-height:18px; font-size:11px; font-weight:700; color:#FFFFFF;">!</div>
+                                                        </td>
+                                                        <td style="padding-left:12px;">
+                                                            <p class="info-box-title text-primary" style="margin:0 0 4px 0; font-size:13px; font-weight:600; color:#0F172A;">
+                                                                본인이 요청하지 않았나요?
+                                                            </p>
+                                                            <p class="info-box-text text-secondary" style="margin:0; font-size:13px; color:#475569; line-height:1.6;">
+                                                                이 메일을 무시하고 비밀번호를 점검해주세요. UniTT은 어떤 경로로도 인증번호를 먼저 묻지 않아요.
+                                                            </p>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+                </tr>
+
+                <!-- 푸터 -->
+                <tr>
+                    <td style="padding:32px 32px 0 32px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding-top:20px;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                                        <tr>
+                                            <td class="footer-divider" style="border-top:1px solid #E2E8F0; line-height:1px; font-size:1px;">&nbsp;</td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td align="center" style="padding-top:16px;">
+                                    <p class="text-muted" style="margin:0 0 4px 0; font-size:11px; color:#94A3B8; line-height:1.6; font-weight:500;">
+                                        UniTT · 검증된 학생끼리, 캠퍼스 동선 안에서
+                                    </p>
+                                    <p class="text-muted" style="margin:0; font-size:11px; color:#94A3B8; line-height:1.6;">
+                                        © UniTT. 이 메일은 발신 전용이에요.
+                                    </p>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+
+            </table>
+            <!-- /컨테이너 -->
+
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

@@ -25,6 +25,19 @@ spring:
       - classpath:db/seed/local
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
 
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS_ENABLE:false}
+            required: ${SMTP_STARTTLS_REQUIRED:false}
+
 logging:
   level:
     com.unit: ${APP_LOG_LEVEL:DEBUG}
@@ -39,6 +52,11 @@ unit:
       access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:1800}
     refresh-token:
       expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS:1209600} # 14일
+
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    from-address: ${MAIL_FROM_ADDRESS:no-reply@unit.local}
+    from-name: ${MAIL_FROM_NAME:UniTT}
 
 management:
   endpoints:

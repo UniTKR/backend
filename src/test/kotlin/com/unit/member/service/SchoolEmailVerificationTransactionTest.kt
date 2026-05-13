@@ -8,6 +8,8 @@ import com.unit.member.repository.SchoolEmailVerificationCodeRepository
 import com.unit.member.util.EmailHasher
 import com.unit.member.util.TokenHasher
 import com.unit.platform.error.BusinessException
+import com.unit.platform.mail.EmailMessage
+import com.unit.platform.mail.EmailSender
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
@@ -16,6 +18,9 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Import
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
@@ -23,6 +28,7 @@ import java.time.LocalDateTime
 
 @ActiveProfiles("test")
 @SpringBootTest
+@Import(SchoolEmailVerificationTransactionTest.MailTestConfig::class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @DisplayName("학교 이메일 인증 트랜잭션 테스트")
 class SchoolEmailVerificationTransactionTest @Autowired constructor(
@@ -119,5 +125,17 @@ class SchoolEmailVerificationTransactionTest @Autowired constructor(
             codeHash = tokenHasher.hash(code),
             expiresAt = expiresAt,
         )
+    }
+
+    @TestConfiguration
+    class MailTestConfig {
+
+        @Bean
+        fun emailSender(): EmailSender {
+            return object : EmailSender {
+                override fun send(message: EmailMessage) {
+                }
+            }
+        }
     }
 }

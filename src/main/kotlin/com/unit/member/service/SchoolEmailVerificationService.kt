@@ -17,6 +17,9 @@ import com.unit.member.util.SchoolEmailVerificationCodeGenerator
 import com.unit.member.util.SchoolEmailVerificationFailureRecorder
 import com.unit.member.util.TokenHasher
 import com.unit.platform.error.BusinessException
+import com.unit.platform.mail.EmailMessage
+import com.unit.platform.mail.EmailSender
+import com.unit.platform.mail.EmailTemplateRenderer
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -32,8 +35,11 @@ class SchoolEmailVerificationService(
     private val emailHasher: EmailHasher,
     private val tokenHasher: TokenHasher,
     private val codeGenerator: SchoolEmailVerificationCodeGenerator,
-    private val failureRecorder: SchoolEmailVerificationFailureRecorder
-) : SchoolEmailVerificationUseCase {
+    private val failureRecorder: SchoolEmailVerificationFailureRecorder,
+    private val emailSender: EmailSender,
+    private val emailTemplateRenderer: EmailTemplateRenderer,
+
+    ) : SchoolEmailVerificationUseCase {
 
     private val verificationExpiresInSeconds = 300L
 
@@ -77,8 +83,22 @@ class SchoolEmailVerificationService(
             )
         )
 
-        // TODO: platform notification/email sender로 교체
-        println("[SchoolEmailVerification] email=$email code=$code")
+        val html = emailTemplateRenderer.render(
+            templatePath = "mail/school-email-verification.html",
+            variables = mapOf(
+                "code" to code,
+                "expiresInMinutes" to (verificationExpiresInSeconds / 60).toString(),
+            ),
+        )
+
+        emailSender.send(
+            EmailMessage(
+                to = email,
+                subject = "[UniT] 학교 이메일 인증 코드",
+                body = html,
+                html = true,
+            ),
+        )
 
         return SchoolEmailVerificationResponse(
             schoolId = schoolId,
