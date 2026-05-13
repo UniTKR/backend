@@ -2,6 +2,7 @@ package com.unit.member.controller
 
 import com.unit.member.dto.SchoolAuthDto.*
 import com.unit.member.service.SchoolEmailVerificationUseCase
+import com.unit.platform.security.memberId
 import com.unit.platform.web.response.ApiResponse
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
@@ -23,10 +24,8 @@ class SchoolEmailVerificationController(
         @AuthenticationPrincipal jwt: Jwt,
         @Valid @RequestBody request: SchoolEmailVerificationRequest,
     ): ResponseEntity<ApiResponse<SchoolEmailVerificationResponse>> {
-        val memberId = jwt.subject.toLong()
-
         val response = schoolEmailVerificationUseCase.request(
-            memberId = memberId,
+            memberId = jwt.memberId(),
             request = request,
         )
 
@@ -38,10 +37,8 @@ class SchoolEmailVerificationController(
         @AuthenticationPrincipal jwt: Jwt,
         @Valid @RequestBody request: SchoolEmailVerificationConfirmRequest,
     ): ResponseEntity<ApiResponse<SchoolEmailVerificationConfirmResponse>> {
-        val memberId = jwt.subject.toLong()
-
         val response = schoolEmailVerificationUseCase.confirm(
-            memberId = memberId,
+            memberId = jwt.memberId(),
             request = request,
         )
 
