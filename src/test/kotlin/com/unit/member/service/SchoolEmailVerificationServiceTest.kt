@@ -14,6 +14,8 @@ import com.unit.member.util.SchoolEmailVerificationCodeGenerator
 import com.unit.member.util.SchoolEmailVerificationFailureRecorder
 import com.unit.member.util.TokenHasher
 import com.unit.platform.error.BusinessException
+import com.unit.platform.mail.EmailSender
+import com.unit.platform.mail.EmailTemplateRenderer
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -38,6 +40,8 @@ class SchoolEmailVerificationServiceTest {
     private val tokenHasher = mockk<TokenHasher>()
     private val codeGenerator = mockk<SchoolEmailVerificationCodeGenerator>()
     private val failureRecorder = mockk<SchoolEmailVerificationFailureRecorder>()
+    private val emailSender = mockk<EmailSender>()
+    private val emailTemplateRenderer = mockk<EmailTemplateRenderer>()
 
     private val service = SchoolEmailVerificationService(
         schoolRepository = schoolRepository,
@@ -49,6 +53,8 @@ class SchoolEmailVerificationServiceTest {
         tokenHasher = tokenHasher,
         codeGenerator = codeGenerator,
         failureRecorder = failureRecorder,
+        emailSender = emailSender,
+        emailTemplateRenderer = emailTemplateRenderer,
     )
 
     @Test
@@ -75,6 +81,17 @@ class SchoolEmailVerificationServiceTest {
         every { codeGenerator.generate() } returns "123456"
         every { tokenHasher.hash("123456") } returns codeHash
         every { schoolEmailVerificationCodeRepository.save(capture(savedSlot)) } answers { firstArg() }
+        every {
+            emailTemplateRenderer.render(
+                templatePath = "mail/school-email-verification.html",
+                variables = mapOf(
+                    "code" to "123456",
+                    "expiresInMinutes" to "5",
+                ),
+            )
+        } returns "<html>인증코드 123456</html>"
+
+        every { emailSender.send(any()) } just Runs
 
         val response = service.request(
             memberId = memberId,
@@ -94,6 +111,26 @@ class SchoolEmailVerificationServiceTest {
         assertThat(savedSlot.captured.emailHash).isSameAs(emailHash)
         assertThat(savedSlot.captured.codeHash).isSameAs(codeHash)
         assertThat(savedSlot.captured.status).isEqualTo(SchoolEmailVerificationStatus.PENDING)
+
+        verify(exactly = 1) {
+            emailTemplateRenderer.render(
+                templatePath = "mail/school-email-verification.html",
+                variables = mapOf(
+                    "code" to "123456",
+                    "expiresInMinutes" to "5",
+                ),
+            )
+        }
+
+        verify(exactly = 1) {
+            emailSender.send(
+                match {
+                    it.to == "test@snu.ac.kr" &&
+                            it.body == "<html>인증코드 123456</html>" &&
+                            it.html
+                },
+            )
+        }
 
     }
 
@@ -118,6 +155,17 @@ class SchoolEmailVerificationServiceTest {
         every { codeGenerator.generate() } returns "123456"
         every { tokenHasher.hash("123456") } returns codeHash
         every { schoolEmailVerificationCodeRepository.save(any()) } answers { firstArg() }
+        every {
+            emailTemplateRenderer.render(
+                templatePath = "mail/school-email-verification.html",
+                variables = mapOf(
+                    "code" to "123456",
+                    "expiresInMinutes" to "5",
+                ),
+            )
+        } returns "<html>인증코드 123456</html>"
+
+        every { emailSender.send(any()) } just Runs
 
         service.request(
             memberId = memberId,
@@ -128,6 +176,8 @@ class SchoolEmailVerificationServiceTest {
         )
 
         verify(exactly = 1) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 1) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 1) { emailSender.send(any()) }
     }
 
     @Test
@@ -149,6 +199,8 @@ class SchoolEmailVerificationServiceTest {
             .isEqualTo(MemberErrorCode.SCHOOL_NOT_FOUND)
 
         verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 0) { emailTemplateRenderer.render(any(), any()) }
+        verify(exactly = 0) { emailSender.send(any()) }
     }
 
     @Test
@@ -171,6 +223,29 @@ class SchoolEmailVerificationServiceTest {
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED)
 
         verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 0) { emailTemplateRenderer.render(any(), any()) }
+        verify(exactly = 0) { emailSender.send(any()) }
+    }
+
+    @Test
+    @DisplayName("인증 요청의 schoolId가 null이면 예외가 발생한다")
+    fun requestWithNullSchoolId() {
+        assertThatThrownBy {
+            service.request(
+                memberId = 1L,
+                request = SchoolEmailVerificationRequest(
+                    schoolId = null,
+                    email = "test@snu.ac.kr",
+                ),
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+
+        verify(exactly = 0) { schoolRepository.findByIdAndStatus(any()) }
+        verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { emailTemplateRenderer.render(any(), any()) }
+        verify(exactly = 0) { emailSender.send(any()) }
     }
 
     @Test
@@ -580,26 +655,6 @@ class SchoolEmailVerificationServiceTest {
     }
 
     @Test
-    @DisplayName("인증 요청의 schoolId가 null이면 예외가 발생한다")
-    fun requestWithNullSchoolId() {
-        assertThatThrownBy {
-            service.request(
-                memberId = 1L,
-                request = SchoolEmailVerificationRequest(
-                    schoolId = null,
-                    email = "test@snu.ac.kr",
-                ),
-            )
-        }.isInstanceOf(IllegalArgumentException::class.java)
-
-        verify(exactly = 0) { schoolRepository.findByIdAndStatus(any()) }
-        verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
-        verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
-    }
-
-
-    @Test
     @DisplayName("인증 확인의 schoolId가 null이면 예외가 발생한다")
     fun confirmWithNullSchoolId() {
         assertThatThrownBy {
@@ -623,10 +678,6 @@ class SchoolEmailVerificationServiceTest {
         verify(exactly = 0) { failureRecorder.expire(any()) }
         verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
     }
-
-
-
-
 
     private fun createSchool(id: Long): School {
         return School(

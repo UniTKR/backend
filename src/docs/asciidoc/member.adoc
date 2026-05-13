@@ -256,6 +256,14 @@ include::{snippets}/member/school-email-verifications/request/domain-not-allowed
 
 include::{snippets}/member/school-email-verifications/request/domain-not-allowed/response-fields.adoc[]
 
+==== 학교 없음
+
+존재하지 않거나 활성 상태가 아닌 학교로 인증을 요청하면 `SCHOOL_NOT_FOUND` 에러를 반환합니다.
+
+include::{snippets}/member/school-email-verifications/request/school-not-found/http-response.adoc[]
+
+include::{snippets}/member/school-email-verifications/request/school-not-found/response-fields.adoc[]
+
 ==== 학교 이메일 인증 확인
 
 사용자가 이메일로 받은 인증 코드를 제출합니다.
@@ -283,6 +291,22 @@ include::{snippets}/member/school-email-verifications/confirm/validation-failed/
 
 include::{snippets}/member/school-email-verifications/confirm/validation-failed/response-fields.adoc[]
 
+==== 학교 이메일 인증 코드 없음
+
+요청한 학교와 이메일에 해당하는 대기 중 인증 코드가 없으면 `SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND` 에러를 반환합니다.
+
+include::{snippets}/member/school-email-verifications/confirm/code-not-found/http-response.adoc[]
+
+include::{snippets}/member/school-email-verifications/confirm/code-not-found/response-fields.adoc[]
+
+==== 학교 이메일 인증 코드 만료
+
+인증 코드가 만료되었으면 `SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED` 에러를 반환합니다.
+
+include::{snippets}/member/school-email-verifications/confirm/code-expired/http-response.adoc[]
+
+include::{snippets}/member/school-email-verifications/confirm/code-expired/response-fields.adoc[]
+
 ==== 학교 이메일 인증 코드 불일치
 
 입력한 인증 코드가 저장된 코드와 일치하지 않으면 `SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED` 에러를 반환합니다.
@@ -290,6 +314,14 @@ include::{snippets}/member/school-email-verifications/confirm/validation-failed/
 include::{snippets}/member/school-email-verifications/confirm/code-mismatched/http-response.adoc[]
 
 include::{snippets}/member/school-email-verifications/confirm/code-mismatched/response-fields.adoc[]
+
+==== 학교 인증 정보 없음
+
+회원가입 시 생성된 학교 인증 대기 정보가 없으면 `SCHOOL_VERIFICATION_NOT_FOUND` 에러를 반환합니다.
+
+include::{snippets}/member/school-email-verifications/confirm/school-verification-not-found/http-response.adoc[]
+
+include::{snippets}/member/school-email-verifications/confirm/school-verification-not-found/response-fields.adoc[]
 
 === TODO: snippet include 목록
 

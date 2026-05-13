@@ -24,3 +24,5 @@ unit:
       access-token-expiration-seconds: 1800
     refresh-token:
       expiration-seconds: 1209600 # 14일
+  mail:
+    enabled: false
