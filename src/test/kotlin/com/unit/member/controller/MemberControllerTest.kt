@@ -1,13 +1,20 @@
 package com.unit.member.controller
 
+import com.unit.member.dto.MemberMeResponse
+import com.unit.member.dto.MemberSchoolResponse
 import com.unit.member.dto.MemberSignupRequest
 import com.unit.member.dto.MemberSignupResponse
 import com.unit.member.enums.MemberStatus
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
+import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.platform.error.BusinessException
 import com.unit.platform.error.GlobalExceptionHandler
+import com.unit.platform.security.JsonAccessDeniedHandler
+import com.unit.platform.security.JsonAuthenticationEntryPoint
+import com.unit.platform.security.SecurityConfig
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -17,15 +24,24 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest
 import org.springframework.context.annotation.Import
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.security.oauth2.jwt.Jwt
+import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import kotlin.test.Test
 
 @WebMvcTest(MemberController::class)
-@AutoConfigureMockMvc(addFilters = false)
-@Import(GlobalExceptionHandler::class)
+@AutoConfigureMockMvc
+@Import(
+    GlobalExceptionHandler::class,
+    SecurityConfig::class,
+    JsonAuthenticationEntryPoint::class,
+    JsonAccessDeniedHandler::class,
+)
 @DisplayName("MemberController 테스트")
 class MemberControllerTest @Autowired constructor(
     private val mockMvc: MockMvc
@@ -33,6 +49,24 @@ class MemberControllerTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var memberSignupUseCase: MemberSignupUseCase
+
+    @MockitoBean
+    private lateinit var memberQueryUseCase: MemberQueryUseCase
+
+    @MockitoBean
+    private lateinit var jwtDecoder: JwtDecoder
+
+    @BeforeEach
+    fun setUp() {
+        given(jwtDecoder.decode("access-token")).willReturn(
+            Jwt.withTokenValue("access-token")
+                .header("alg", "none")
+                .subject("1")
+                .claim("memberId", 1L)
+                .build(),
+        )
+    }
+
 
     @Test
     @DisplayName("회원가입에 성공하면 201 Created를 반환한다")
@@ -170,6 +204,78 @@ class MemberControllerTest @Autowired constructor(
         then(memberSignupUseCase).shouldHaveNoInteractions()
     }
 
+
+    @Test
+    @DisplayName("내 정보 조회에 성공하면 200 OK를 반환한다")
+    fun getMe() {
+        given(memberQueryUseCase.getMe(1L)).willReturn(
+            MemberMeResponse(
+                memberId = 1L,
+                nickname = "unit_user",
+                profileImageUrl = "profile_image_url",
+                status = MemberStatus.ACTIVE,
+                trustScore = 100,
+                school = MemberSchoolResponse(
+                    schoolId = 1L,
+                    name = "Unit_University",
+                    verificationStatus = UserSchoolVerificationStatus.VERIFIED,
+                ),
+            )
+        )
+
+        mockMvc.get("/api/v1/members/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.memberId") { value(1) }
+            jsonPath("$.data.nickname") { value("unit_user") }
+            jsonPath("$.data.profileImageUrl") { value("profile_image_url") }
+            jsonPath("$.data.status") { value("ACTIVE") }
+            jsonPath("$.data.trustScore") { value(100) }
+            jsonPath("$.data.school.schoolId") { value(1) }
+            jsonPath("$.data.school.name") { value("Unit_University") }
+            jsonPath("$.data.school.verificationStatus") { value("VERIFIED") }
+        }
+
+        then(memberQueryUseCase).should().getMe(1L)
+        then(memberQueryUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("내 정보 조회 시 학교 정보가 없으면 school은 null이다")
+    fun getMeWithoutSchool() {
+        given(memberQueryUseCase.getMe(1L)).willReturn(
+            MemberMeResponse(
+                memberId = 1L,
+                nickname = "unit_user",
+                profileImageUrl = null,
+                status = MemberStatus.PENDING,
+                trustScore = 0,
+                school = null,
+            ),
+        )
+
+        mockMvc.get("/api/v1/members/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.memberId") { value(1) }
+            jsonPath("$.data.nickname") { value("unit_user") }
+            jsonPath("$.data.profileImageUrl") { doesNotExist() }
+            jsonPath("$.data.status") { value("PENDING") }
+            jsonPath("$.data.trustScore") { value(0) }
+            jsonPath("$.data.school") { doesNotExist() }
+        }
+
+        then(memberQueryUseCase).should().getMe(1L)
+        then(memberQueryUseCase).shouldHaveNoMoreInteractions()
+    }
 
 
 }

@@ -94,6 +94,21 @@ include::{snippets}/member/signup/email-duplicated/http-response.adoc[]
 
 include::{snippets}/member/signup/email-duplicated/response-fields.adoc[]
 
+=== Profile APIs
+
+==== 내 정보 조회
+
+로그인한 사용자의 프로필, 회원 상태, 신뢰 점수, 학교 인증 정보를 조회합니다.
+`profileImageUrl`과 `school`은 값이 없으면 응답에서 생략됩니다.
+
+include::{snippets}/member/profile-get/http-request.adoc[]
+
+include::{snippets}/member/profile-get/request-headers.adoc[]
+
+include::{snippets}/member/profile-get/http-response.adoc[]
+
+include::{snippets}/member/profile-get/response-fields.adoc[]
+
 === Auth APIs
 
 ==== 로그인
@@ -329,7 +344,6 @@ include::{snippets}/member/school-email-verifications/confirm/school-verificatio
 
 [source,adoc]
 ----
-// include::{snippets}/member/profile-get/http-response.adoc[]
 // include::{snippets}/member/profile-update/http-request.adoc[]
 // include::{snippets}/member/profile-update/http-response.adoc[]
 ----
