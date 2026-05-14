@@ -1,5 +1,6 @@
 package com.unit.member.controller
 
+import com.unit.member.dto.MemberAvailabilityResponse
 import com.unit.member.dto.MemberMeResponse
 import com.unit.member.dto.MemberSchoolResponse
 import com.unit.member.dto.MemberSignupRequest
@@ -7,6 +8,7 @@ import com.unit.member.dto.MemberSignupResponse
 import com.unit.member.enums.MemberStatus
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
+import com.unit.member.service.MemberAvailabilityUseCase
 import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.member.service.MemberWithdrawalUseCase
@@ -33,6 +35,8 @@ import org.springframework.restdocs.payload.JsonFieldType
 import org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath
 import org.springframework.restdocs.payload.PayloadDocumentation.requestFields
 import org.springframework.restdocs.payload.PayloadDocumentation.responseFields
+import org.springframework.restdocs.request.RequestDocumentation.parameterWithName
+import org.springframework.restdocs.request.RequestDocumentation.queryParameters
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -63,6 +67,9 @@ class MemberDocsTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var memberWithdrawalUseCase: MemberWithdrawalUseCase
+
+    @MockitoBean
+    private lateinit var memberAvailabilityUseCase: MemberAvailabilityUseCase
 
     @MockitoBean
     private lateinit var jwtDecoder: JwtDecoder
@@ -291,6 +298,82 @@ class MemberDocsTest @Autowired constructor(
                             .type(JsonFieldType.ARRAY)
                             .optional()
                             .description("필드 검증 실패 목록. 중복 이메일 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("이메일 사용 가능 여부 조회 API를 문서화한다")
+    fun checkEmailAvailability() {
+        given(memberAvailabilityUseCase.checkEmailAvailability("test@unit.com"))
+            .willReturn(MemberAvailabilityResponse(available = true))
+
+        mockMvc.get("/api/v1/members/email-availability") {
+            param("email", "test@unit.com")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.available") { value(true) }
+        }.andDo {
+            handle(
+                document(
+                    "member/email-availability",
+                    queryParameters(
+                        parameterWithName("email")
+                            .description("사용 가능 여부를 확인할 이메일입니다. 서버에서 정규화 후 해시로 비교합니다."),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 응답 코드"),
+                        fieldWithPath("data")
+                            .type(JsonFieldType.OBJECT)
+                            .description("이메일 사용 가능 여부 조회 결과"),
+                        fieldWithPath("data.available")
+                            .type(JsonFieldType.BOOLEAN)
+                            .description("true이면 가입에 사용할 수 있고, false이면 이미 사용 중입니다."),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("닉네임 사용 가능 여부 조회 API를 문서화한다")
+    fun checkNicknameAvailability() {
+        given(memberAvailabilityUseCase.checkNicknameAvailability("unit_user"))
+            .willReturn(MemberAvailabilityResponse(available = false))
+
+        mockMvc.get("/api/v1/members/nickname-availability") {
+            param("nickname", "unit_user")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.available") { value(false) }
+        }.andDo {
+            handle(
+                document(
+                    "member/nickname-availability",
+                    queryParameters(
+                        parameterWithName("nickname")
+                            .description("사용 가능 여부를 확인할 닉네임입니다. 앞뒤 공백은 제거한 뒤 비교합니다."),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 응답 코드"),
+                        fieldWithPath("data")
+                            .type(JsonFieldType.OBJECT)
+                            .description("닉네임 사용 가능 여부 조회 결과"),
+                        fieldWithPath("data.available")
+                            .type(JsonFieldType.BOOLEAN)
+                            .description("true이면 가입에 사용할 수 있고, false이면 이미 사용 중입니다."),
                     ),
                 ),
             )

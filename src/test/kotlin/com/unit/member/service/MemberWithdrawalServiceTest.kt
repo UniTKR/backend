@@ -132,6 +132,41 @@ class MemberWithdrawalServiceTest {
     }
 
     @Test
+    @DisplayName("탈퇴 후처리 정책이 실패해도 다음 후처리 정책을 계속 실행한다")
+    fun withdrawWithFailedPostProcessingPolicy() {
+        val member = createMember()
+        val consents = createMemberConsents()
+        val failedPolicy = mockk<MemberWithdrawalPolicy>()
+        val nextPolicy = mockk<MemberWithdrawalPolicy>()
+        val service = MemberWithdrawalService(
+            memberRepository = memberRepository,
+            memberConsentRepository = memberConsentRepository,
+            refreshTokenUseCase = refreshTokenUseCase,
+            withdrawalPolicies = listOf(failedPolicy, nextPolicy),
+        )
+
+        every {
+            memberRepository.findByIdAndStatusInAndDeletedAtIsNull(
+                id = 1L,
+                statuses = listOf(MemberStatus.PENDING, MemberStatus.ACTIVE),
+            )
+        } returns member
+        every { failedPolicy.validate(any()) } just Runs
+        every { nextPolicy.validate(any()) } just Runs
+        every { memberConsentRepository.findAllByMemberId(1L) } returns consents
+        every { refreshTokenUseCase.revokeAll(1L) } just Runs
+        every { failedPolicy.apply(any()) } throws RuntimeException("post-processing failed")
+        every { nextPolicy.apply(any()) } just Runs
+
+        service.withdraw(1L)
+
+        verify(exactly = 1) { failedPolicy.validate(any()) }
+        verify(exactly = 1) { nextPolicy.validate(any()) }
+        verify(exactly = 1) { failedPolicy.apply(any()) }
+        verify(exactly = 1) { nextPolicy.apply(any()) }
+    }
+
+    @Test
     @DisplayName("탈퇴 가능한 회원을 찾을 수 없으면 예외가 발생한다")
     fun withdrawWithNotFoundMember() {
         every {
