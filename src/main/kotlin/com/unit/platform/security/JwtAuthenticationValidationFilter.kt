@@ -12,7 +12,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.filter.OncePerRequestFilter
 import tools.jackson.databind.ObjectMapper
 
-class JwtAuthenticationValidationFilter(
+open class JwtAuthenticationValidationFilter(
     private val validators: List<JwtAuthenticationValidator>,
     private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
