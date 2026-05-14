@@ -24,6 +24,8 @@ unit:
       access-token-expiration-seconds: 1800
     refresh-token:
       expiration-seconds: 1209600 # 14일
+    email-encryption:
+      key-base64: ${EMAIL_ENCRYPTION_KEY_BASE64:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=}
   mail:
     enabled: false
   consent:

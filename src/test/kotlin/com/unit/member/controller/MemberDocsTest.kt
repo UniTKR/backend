@@ -303,6 +303,7 @@ class MemberDocsTest @Autowired constructor(
         given(memberQueryUseCase.getMe(1L)).willReturn(
             MemberMeResponse(
                 memberId = 1L,
+                email = "test@unit.com",
                 nickname = "unit_user",
                 profileImageUrl = "profile_image_url",
                 status = MemberStatus.ACTIVE,
@@ -311,6 +312,7 @@ class MemberDocsTest @Autowired constructor(
                     schoolId = 1L,
                     name = "Unit_University",
                     verificationStatus = UserSchoolVerificationStatus.VERIFIED,
+                    verifiedEmail = "test@snu.ac.kr",
                 ),
             ),
         )
@@ -323,6 +325,7 @@ class MemberDocsTest @Autowired constructor(
             content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
             jsonPath("$.code") { value("OK") }
             jsonPath("$.data.memberId") { value(1) }
+            jsonPath("$.data.email") { value("test@unit.com") }
             jsonPath("$.data.nickname") { value("unit_user") }
             jsonPath("$.data.profileImageUrl") { value("profile_image_url") }
             jsonPath("$.data.status") { value("ACTIVE") }
@@ -330,6 +333,7 @@ class MemberDocsTest @Autowired constructor(
             jsonPath("$.data.school.schoolId") { value(1) }
             jsonPath("$.data.school.name") { value("Unit_University") }
             jsonPath("$.data.school.verificationStatus") { value("VERIFIED") }
+            jsonPath("$.data.school.verifiedEmail") { value("test@snu.ac.kr") }
         }.andDo {
             handle(
                 document(
@@ -361,6 +365,10 @@ class MemberDocsTest @Autowired constructor(
                         fieldWithPath("data.trustScore")
                             .type(JsonFieldType.NUMBER)
                             .description("회원 신뢰 점수"),
+                        fieldWithPath("data.email")
+                            .type(JsonFieldType.STRING)
+                            .optional()
+                            .description("회원 이메일"),
                         fieldWithPath("data.school")
                             .type(JsonFieldType.OBJECT)
                             .optional()
@@ -373,6 +381,10 @@ class MemberDocsTest @Autowired constructor(
                             .type(JsonFieldType.STRING)
                             .optional()
                             .description("인증된 학교 이름"),
+                        fieldWithPath("data.school.verifiedEmail")
+                            .type(JsonFieldType.STRING)
+                            .optional()
+                            .description("인증된 학교 이메일"),
                         fieldWithPath("data.school.verificationStatus")
                             .type(JsonFieldType.STRING)
                             .optional()

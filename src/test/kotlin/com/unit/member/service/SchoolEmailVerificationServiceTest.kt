@@ -9,6 +9,7 @@ import com.unit.member.entity.UserSchoolVerification
 import com.unit.member.enums.*
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.repository.*
+import com.unit.member.util.EmailEncryptor
 import com.unit.member.util.EmailHasher
 import com.unit.member.util.SchoolEmailVerificationCodeGenerator
 import com.unit.member.util.SchoolEmailVerificationFailureRecorder
@@ -37,6 +38,7 @@ class SchoolEmailVerificationServiceTest {
     private val userSchoolVerificationRepository = mockk<UserSchoolVerificationRepository>()
     private val memberRepository = mockk<MemberRepository>()
     private val emailHasher = mockk<EmailHasher>()
+    private val emailEncryptor = mockk<EmailEncryptor>()
     private val tokenHasher = mockk<TokenHasher>()
     private val codeGenerator = mockk<SchoolEmailVerificationCodeGenerator>()
     private val failureRecorder = mockk<SchoolEmailVerificationFailureRecorder>()
@@ -55,6 +57,7 @@ class SchoolEmailVerificationServiceTest {
         failureRecorder = failureRecorder,
         emailSender = emailSender,
         emailTemplateRenderer = emailTemplateRenderer,
+        emailEncryptor = emailEncryptor,
     )
 
     @Test
@@ -254,6 +257,7 @@ class SchoolEmailVerificationServiceTest {
         val memberId = 1L
         val schoolId = 1L
         val emailHash = ByteArray(32) { 1 }
+        val emailEncrypted = ByteArray(64) { 3 }
         val codeHash = ByteArray(32) { 2 }
         val verificationCode = createVerificationCode(id = 10L, memberId = memberId, schoolId = schoolId, emailHash = emailHash, codeHash = codeHash)
         val schoolVerification = createUserSchoolVerification(memberId, schoolId)
@@ -267,6 +271,7 @@ class SchoolEmailVerificationServiceTest {
         } returns verificationCode
         every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
+        every { emailEncryptor.encrypt("test@snu.ac.kr") } returns emailEncrypted
         every { userSchoolVerificationRepository.findByMemberIdAndSchoolId(memberId, schoolId) } returns schoolVerification
         every { memberRepository.findByIdAndStatusAndDeletedAtIsNull(memberId, MemberStatus.PENDING) } returns member
 
@@ -278,6 +283,9 @@ class SchoolEmailVerificationServiceTest {
         assertThat(response.status).isEqualTo(UserSchoolVerificationStatus.VERIFIED)
         assertThat(verificationCode.status).isEqualTo(SchoolEmailVerificationStatus.VERIFIED)
         assertThat(schoolVerification.status).isEqualTo(UserSchoolVerificationStatus.VERIFIED)
+        assertThat(schoolVerification.verifiedEmailHash).containsExactly(*emailHash)
+        assertThat(schoolVerification.verifiedEmailEncrypted).isEqualTo(emailEncrypted)
+        assertThat(schoolVerification.verifiedAt).isNotNull()
         assertThat(member.status).isEqualTo(MemberStatus.ACTIVE)
 
         verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }

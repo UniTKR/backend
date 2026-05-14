@@ -226,6 +226,7 @@ class MemberControllerTest @Autowired constructor(
         given(memberQueryUseCase.getMe(1L)).willReturn(
             MemberMeResponse(
                 memberId = 1L,
+                email = "test@unit.com",
                 nickname = "unit_user",
                 profileImageUrl = "profile_image_url",
                 status = MemberStatus.ACTIVE,
@@ -234,6 +235,7 @@ class MemberControllerTest @Autowired constructor(
                     schoolId = 1L,
                     name = "Unit_University",
                     verificationStatus = UserSchoolVerificationStatus.VERIFIED,
+                    verifiedEmail = "test@snu.ac.kr",
                 ),
             )
         )
@@ -246,6 +248,7 @@ class MemberControllerTest @Autowired constructor(
             content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
             jsonPath("$.code") { value("OK") }
             jsonPath("$.data.memberId") { value(1) }
+            jsonPath("$.data.email") { value("test@unit.com") }
             jsonPath("$.data.nickname") { value("unit_user") }
             jsonPath("$.data.profileImageUrl") { value("profile_image_url") }
             jsonPath("$.data.status") { value("ACTIVE") }
@@ -253,6 +256,7 @@ class MemberControllerTest @Autowired constructor(
             jsonPath("$.data.school.schoolId") { value(1) }
             jsonPath("$.data.school.name") { value("Unit_University") }
             jsonPath("$.data.school.verificationStatus") { value("VERIFIED") }
+            jsonPath("$.data.school.verifiedEmail") { value("test@snu.ac.kr") }
         }
 
         then(memberQueryUseCase).should().getMe(1L)
@@ -265,6 +269,7 @@ class MemberControllerTest @Autowired constructor(
         given(memberQueryUseCase.getMe(1L)).willReturn(
             MemberMeResponse(
                 memberId = 1L,
+                email = "test@unit.com",
                 nickname = "unit_user",
                 profileImageUrl = null,
                 status = MemberStatus.PENDING,
@@ -281,6 +286,7 @@ class MemberControllerTest @Autowired constructor(
             content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
             jsonPath("$.code") { value("OK") }
             jsonPath("$.data.memberId") { value(1) }
+            jsonPath("$.data.email") { value("test@unit.com") }
             jsonPath("$.data.nickname") { value("unit_user") }
             jsonPath("$.data.profileImageUrl") { doesNotExist() }
             jsonPath("$.data.status") { value("PENDING") }

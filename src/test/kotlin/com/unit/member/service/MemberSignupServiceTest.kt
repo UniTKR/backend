@@ -13,6 +13,7 @@ import com.unit.member.repository.MemberConsentRepository
 import com.unit.member.repository.MemberRepository
 import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
+import com.unit.member.util.EmailEncryptor
 import com.unit.member.util.EmailHasher
 import com.unit.platform.error.BusinessException
 import io.mockk.every
@@ -33,6 +34,7 @@ class MemberSignupServiceTest {
     private val userSchoolVerificationRepository = mockk<UserSchoolVerificationRepository>()
     private val passwordEncoder = mockk<PasswordEncoder>()
     private val emailHasher = mockk<EmailHasher>()
+    private val emailEncryptor = mockk<EmailEncryptor>()
     private val memberConsentRepository = mockk<MemberConsentRepository>()
     private val memberConsentProperties = MemberConsentProperties(
         termsVersion = "2026-05-14-test",
@@ -45,6 +47,7 @@ class MemberSignupServiceTest {
         userSchoolVerificationRepository = userSchoolVerificationRepository,
         passwordEncoder = passwordEncoder,
         emailHasher = emailHasher,
+        emailEncryptor = emailEncryptor,
         memberConsentRepository = memberConsentRepository,
         memberConsentProperties = memberConsentProperties,
     )
@@ -54,6 +57,7 @@ class MemberSignupServiceTest {
     fun signup() {
         val request = createRequest(nickname = " unit_user ")
         val emailHash = ByteArray(32) { 1 }
+        val emailEncrypted = ByteArray(64) { 3 }
         val encodedPassword = "encoded-password"
 
         val memberSlot = slot<Member>()
@@ -64,10 +68,12 @@ class MemberSignupServiceTest {
         every { memberRepository.existsByEmailHashAndDeletedAtIsNull(emailHash) } returns false
         every { memberRepository.existsByNicknameAndDeletedAtIsNull("unit_user") } returns false
         every { schoolRepository.existsByIdAndStatus(1L) } returns true
+        every { emailEncryptor.encrypt("test@unit.com") } returns emailEncrypted
         every { passwordEncoder.encode(request.password) } returns encodedPassword
         every { memberRepository.save(capture(memberSlot)) } returns Member(
             id = 1L,
             emailHash = emailHash,
+            emailEncrypted = emailEncrypted,
             passwordHash = encodedPassword,
             nickname = "unit_user",
             status = MemberStatus.PENDING,
@@ -87,6 +93,7 @@ class MemberSignupServiceTest {
         assertThat(response.schoolVerificationStatus).isEqualTo(UserSchoolVerificationStatus.PENDING)
 
         assertThat(memberSlot.captured.emailHash).isEqualTo(emailHash)
+        assertThat(memberSlot.captured.emailEncrypted).isEqualTo(emailEncrypted)
         assertThat(memberSlot.captured.passwordHash).isEqualTo(encodedPassword)
         assertThat(memberSlot.captured.nickname).isEqualTo("unit_user")
         assertThat(memberSlot.captured.status).isEqualTo(MemberStatus.PENDING)

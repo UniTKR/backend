@@ -33,10 +33,10 @@ class UserSchoolVerification(
     val method: UserSchoolVerificationMethod,
 
     @Column(name = "verified_email_hash", columnDefinition = "BINARY(32)")
-    val verifiedEmailHash: ByteArray? = null,
+    var verifiedEmailHash: ByteArray? = null,
 
     @Column(name = "verified_email_encrypted", columnDefinition = "VARBINARY(512)")
-    val verifiedEmailEncrypted: ByteArray? = null,
+    var verifiedEmailEncrypted: ByteArray? = null,
 
     @Column(name = "student_number_hash", columnDefinition = "BINARY(32)")
     val studentNumberHash: ByteArray? = null,
@@ -73,5 +73,16 @@ class UserSchoolVerification(
 
     fun expire() {
         this.status = UserSchoolVerificationStatus.EXPIRED
+    }
+
+    fun verifyByEmail(
+        now: LocalDateTime,
+        emailHash: ByteArray,
+        emailEncrypted: ByteArray? = null,
+    ) {
+        this.status = UserSchoolVerificationStatus.VERIFIED
+        this.verifiedAt = now
+        this.verifiedEmailHash = emailHash
+        this.verifiedEmailEncrypted = emailEncrypted
     }
 }

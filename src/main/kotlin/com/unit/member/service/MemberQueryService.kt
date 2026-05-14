@@ -7,6 +7,7 @@ import com.unit.member.exception.MemberErrorCode
 import com.unit.member.repository.MemberRepository
 import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
+import com.unit.member.util.EmailEncryptor
 import com.unit.platform.error.BusinessException
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -18,6 +19,7 @@ class MemberQueryService(
     private val memberRepository: MemberRepository,
     private val userSchoolVerificationRepository: UserSchoolVerificationRepository,
     private val schoolRepository: SchoolRepository,
+    private val emailEncryptor: EmailEncryptor
 ) : MemberQueryUseCase {
 
     override fun getMe(memberId: Long): MemberMeResponse {
@@ -35,11 +37,13 @@ class MemberQueryService(
                 schoolId = requireNotNull(school.id),
                 name = school.name,
                 verificationStatus = it.status,
+                verifiedEmail = it.verifiedEmailEncrypted?.let(emailEncryptor::decrypt),
             )
         }
 
         return MemberMeResponse(
             memberId = requireNotNull(member.id),
+            email = member.emailEncrypted?.let(emailEncryptor::decrypt),
             nickname = member.nickname,
             profileImageUrl = member.profileImageUrl,
             status = member.status,

@@ -12,6 +12,7 @@ import com.unit.member.repository.SchoolEmailDomainRepository
 import com.unit.member.repository.SchoolEmailVerificationCodeRepository
 import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
+import com.unit.member.util.EmailEncryptor
 import com.unit.member.util.EmailHasher
 import com.unit.member.util.SchoolEmailVerificationCodeGenerator
 import com.unit.member.util.SchoolEmailVerificationFailureRecorder
@@ -38,7 +39,7 @@ class SchoolEmailVerificationService(
     private val failureRecorder: SchoolEmailVerificationFailureRecorder,
     private val emailSender: EmailSender,
     private val emailTemplateRenderer: EmailTemplateRenderer,
-
+    private val emailEncryptor: EmailEncryptor,
     ) : SchoolEmailVerificationUseCase {
 
     private val verificationExpiresInSeconds = 300L
@@ -140,21 +141,22 @@ class SchoolEmailVerificationService(
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED)
         }
 
-        verificationCode.verify(now)
-
         val schoolVerification = userSchoolVerificationRepository.findByMemberIdAndSchoolId(
             memberId = memberId,
             schoolId = schoolId,
         ) ?: throw BusinessException(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
-
-        schoolVerification.status = UserSchoolVerificationStatus.VERIFIED
-        schoolVerification.verifiedAt = now
 
         val member = memberRepository.findByIdAndStatusAndDeletedAtIsNull(
             id = memberId,
             status = MemberStatus.PENDING,
         ) ?: throw BusinessException(MemberErrorCode.MEMBER_LOGIN_FORBIDDEN)
 
+        verificationCode.verify(now)
+        schoolVerification.verifyByEmail(
+            now = now,
+            emailHash = emailHash,
+            emailEncrypted = emailEncryptor.encrypt(email),
+        )
         member.activate()
 
         return SchoolEmailVerificationConfirmResponse(
