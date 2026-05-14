@@ -25,7 +25,8 @@ class AuthLoginService(
 
     override fun login(request: AuthLoginRequest): AuthLoginResponse {
 
-        val emailHash = emailHasher.hash(request.email)
+        val email = request.email.trim().lowercase()
+        val emailHash = emailHasher.hash(email)
 
         val member = memberRepository.findByEmailHashAndDeletedAtIsNull(emailHash)
             ?: memberRepository.findTopByEmailHashAndDeletedAtIsNotNullOrderByDeletedAtDescIdDesc(emailHash)
