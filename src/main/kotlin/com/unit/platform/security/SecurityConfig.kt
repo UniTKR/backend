@@ -28,6 +28,8 @@ class SecurityConfig(
         "/docs/**",
         "/api/v1/schools",
         "/api/v1/members/signup",
+        "/api/v1/members/email-availability",
+        "/api/v1/members/nickname-availability",
         "/api/v1/auth/**"
     )
 

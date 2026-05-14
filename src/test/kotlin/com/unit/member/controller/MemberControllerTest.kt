@@ -1,5 +1,6 @@
 package com.unit.member.controller
 
+import com.unit.member.dto.MemberAvailabilityResponse
 import com.unit.member.dto.MemberMeResponse
 import com.unit.member.dto.MemberSchoolResponse
 import com.unit.member.dto.MemberSignupRequest
@@ -7,6 +8,7 @@ import com.unit.member.dto.MemberSignupResponse
 import com.unit.member.enums.MemberStatus
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
+import com.unit.member.service.MemberAvailabilityUseCase
 import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.member.service.MemberWithdrawalUseCase
@@ -57,6 +59,9 @@ class MemberControllerTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var memberWithdrawalUseCase: MemberWithdrawalUseCase
+
+    @MockitoBean
+    private lateinit var memberAvailabilityUseCase: MemberAvailabilityUseCase
 
     @MockitoBean
     private lateinit var jwtDecoder: JwtDecoder
@@ -118,6 +123,78 @@ class MemberControllerTest @Autowired constructor(
 
         then(memberSignupUseCase).should().signup(request)
         then(memberSignupUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("이메일 사용 가능 여부 조회에 성공하면 200 OK를 반환한다")
+    fun checkEmailAvailability() {
+        given(memberAvailabilityUseCase.checkEmailAvailability("test@unit.com"))
+            .willReturn(MemberAvailabilityResponse(available = true))
+
+        mockMvc.get("/api/v1/members/email-availability") {
+            param("email", "test@unit.com")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.available") { value(true) }
+        }
+
+        then(memberAvailabilityUseCase).should().checkEmailAvailability("test@unit.com")
+        then(memberAvailabilityUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("이메일 형식이 올바르지 않으면 400을 반환한다")
+    fun checkEmailAvailabilityWithInvalidEmail() {
+        mockMvc.get("/api/v1/members/email-availability") {
+            param("email", "invalid-email")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("VALIDATION_FAILED") }
+            jsonPath("$.fieldErrors") { isArray() }
+        }
+
+        then(memberAvailabilityUseCase).shouldHaveNoInteractions()
+    }
+
+    @Test
+    @DisplayName("닉네임 사용 가능 여부 조회에 성공하면 200 OK를 반환한다")
+    fun checkNicknameAvailability() {
+        given(memberAvailabilityUseCase.checkNicknameAvailability("unit_user"))
+            .willReturn(MemberAvailabilityResponse(available = false))
+
+        mockMvc.get("/api/v1/members/nickname-availability") {
+            param("nickname", "unit_user")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.available") { value(false) }
+        }
+
+        then(memberAvailabilityUseCase).should().checkNicknameAvailability("unit_user")
+        then(memberAvailabilityUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("닉네임 형식이 올바르지 않으면 400을 반환한다")
+    fun checkNicknameAvailabilityWithInvalidNickname() {
+        mockMvc.get("/api/v1/members/nickname-availability") {
+            param("nickname", "!")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("VALIDATION_FAILED") }
+            jsonPath("$.fieldErrors") { isArray() }
+        }
+
+        then(memberAvailabilityUseCase).shouldHaveNoInteractions()
     }
 
     @Test
