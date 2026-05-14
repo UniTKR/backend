@@ -71,6 +71,13 @@ class SchoolEmailVerificationServiceTest {
         val savedSlot = slot<SchoolEmailVerificationCode>()
 
         every { schoolRepository.findByIdAndStatus(schoolId) } returns createSchool(schoolId)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId,
+                schoolId,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns true
         every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
         every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
 
@@ -146,6 +153,13 @@ class SchoolEmailVerificationServiceTest {
         val codeHash = ByteArray(32) { 2 }
 
         every { schoolRepository.findByIdAndStatus(schoolId) } returns createSchool(schoolId)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId,
+                schoolId,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns true
         every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
         every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
         every {
@@ -210,6 +224,13 @@ class SchoolEmailVerificationServiceTest {
     @DisplayName("학교 이메일 도메인이 아니면 인증 요청에 실패한다")
     fun requestWithNotAllowedDomain() {
         every { schoolRepository.findByIdAndStatus(1L) } returns createSchool(1L)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                1L,
+                1L,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns true
         every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(1L, "gmail.com") } returns false
 
         assertThatThrownBy {
@@ -225,6 +246,41 @@ class SchoolEmailVerificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_DOMAIN_NOT_ALLOWED)
 
+        verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 0) { emailTemplateRenderer.render(any(), any()) }
+        verify(exactly = 0) { emailSender.send(any()) }
+    }
+
+    @Test
+    @DisplayName("회원가입 때 생성된 학교 인증 대기 row와 다른 학교로 인증 요청하면 실패한다")
+    fun requestWithDifferentSchoolVerification() {
+        val memberId = 1L
+        val requestedSchoolId = 2L
+
+        every { schoolRepository.findByIdAndStatus(requestedSchoolId) } returns createSchool(requestedSchoolId)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId,
+                requestedSchoolId,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns false
+
+        assertThatThrownBy {
+            service.request(
+                memberId = memberId,
+                request = SchoolEmailVerificationRequest(
+                    schoolId = requestedSchoolId,
+                    email = "test@snu.ac.kr",
+                ),
+            )
+        }
+            .isInstanceOf(BusinessException::class.java)
+            .extracting("errorCode")
+            .isEqualTo(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
+
+        verify(exactly = 0) { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(any(), any()) }
+        verify(exactly = 0) { emailHasher.hash(any()) }
         verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
         verify(exactly = 0) { emailTemplateRenderer.render(any(), any()) }
         verify(exactly = 0) { emailSender.send(any()) }

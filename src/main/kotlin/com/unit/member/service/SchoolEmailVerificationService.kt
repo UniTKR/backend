@@ -52,6 +52,18 @@ class SchoolEmailVerificationService(
         schoolRepository.findByIdAndStatus(schoolId)
             ?: throw BusinessException(MemberErrorCode.SCHOOL_NOT_FOUND)
 
+        val hasPendingSchoolVerification =
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId = memberId,
+                schoolId = schoolId,
+                status = UserSchoolVerificationStatus.PENDING,
+            )
+
+        if (!hasPendingSchoolVerification) {
+            throw BusinessException(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
+        }
+
+
         val email = request.email.trim().lowercase()
         val domain = extractDomain(email)
 
