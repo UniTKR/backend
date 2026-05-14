@@ -6,6 +6,7 @@ import com.unit.member.repository.MemberRepository
 import com.unit.member.withdrawal.MemberWithdrawalContext
 import com.unit.member.withdrawal.MemberWithdrawalPolicy
 import com.unit.platform.error.BusinessException
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -38,7 +39,7 @@ class MemberWithdrawalService(
         refreshTokenUseCase.revokeAll(context.memberId)
 
         registerAfterCommit {
-            withdrawalPolicies.forEach { it.apply(context) }
+            applyWithdrawalPoliciesAfterCommit(context)
         }
     }
 
@@ -55,6 +56,23 @@ class MemberWithdrawalService(
                 }
             },
         )
+    }
+
+    private fun applyWithdrawalPoliciesAfterCommit(context: MemberWithdrawalContext) {
+        withdrawalPolicies.forEach { policy ->
+            try {
+                policy.apply(context)
+            } catch (e: Exception) {
+                log.error(
+                    "Member withdrawal post-processing failed. memberId=${context.memberId}, policy=${policy.javaClass.name}",
+                    e,
+                )
+            }
+        }
+    }
+
+    companion object {
+        private val log = LoggerFactory.getLogger(MemberWithdrawalService::class.java)
     }
 
 }
