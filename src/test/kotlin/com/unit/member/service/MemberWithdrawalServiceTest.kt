@@ -15,7 +15,9 @@ import io.mockk.slot
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import kotlin.test.Test
 
 @DisplayName("회원 탈퇴 서비스 테스트")
@@ -30,6 +32,13 @@ class MemberWithdrawalServiceTest {
         refreshTokenUseCase = refreshTokenUseCase,
         withdrawalPolicies = listOf(withdrawalPolicy),
     )
+
+    @AfterEach
+    fun tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization()
+        }
+    }
 
     @Test
     @DisplayName("탈퇴 가능 회원이면 정책 검증 후 회원을 탈퇴 처리하고 Refresh Token을 모두 폐기한다")
@@ -48,6 +57,7 @@ class MemberWithdrawalServiceTest {
         every { refreshTokenUseCase.revokeAll(1L) } just Runs
         every { withdrawalPolicy.apply(capture(applyContext)) } just Runs
 
+        TransactionSynchronizationManager.initSynchronization()
         memberWithdrawalService.withdraw(1L)
 
         assertThat(member.status).isEqualTo(MemberStatus.DELETED)
@@ -60,11 +70,19 @@ class MemberWithdrawalServiceTest {
         assertThat(member.emailHash).isNotNull()
 
         assertThat(validateContext.captured.memberId).isEqualTo(1L)
-        assertThat(applyContext.captured.memberId).isEqualTo(1L)
-        assertThat(applyContext.captured.requestedAt).isEqualTo(validateContext.captured.requestedAt)
 
         verify(exactly = 1) { withdrawalPolicy.validate(any()) }
         verify(exactly = 1) { refreshTokenUseCase.revokeAll(1L) }
+        verify(exactly = 0) { withdrawalPolicy.apply(any()) }
+
+        val synchronizations = TransactionSynchronizationManager.getSynchronizations()
+        assertThat(synchronizations).hasSize(1)
+
+        synchronizations.forEach { it.afterCommit() }
+
+        assertThat(applyContext.captured.memberId).isEqualTo(1L)
+        assertThat(applyContext.captured.requestedAt).isEqualTo(validateContext.captured.requestedAt)
+
         verify(exactly = 1) { withdrawalPolicy.apply(any()) }
     }
 

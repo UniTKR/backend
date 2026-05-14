@@ -8,6 +8,8 @@ import com.unit.member.withdrawal.MemberWithdrawalPolicy
 import com.unit.platform.error.BusinessException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime
 
 @Service
@@ -35,6 +37,24 @@ class MemberWithdrawalService(
         member.withdraw(now)
         refreshTokenUseCase.revokeAll(context.memberId)
 
-        withdrawalPolicies.forEach { it.apply(context) }
+        registerAfterCommit {
+            withdrawalPolicies.forEach { it.apply(context) }
+        }
     }
+
+    private fun registerAfterCommit(action: () -> Unit) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action()
+            return
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    action()
+                }
+            },
+        )
+    }
+
 }
