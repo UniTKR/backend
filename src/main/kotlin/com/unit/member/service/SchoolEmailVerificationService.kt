@@ -23,6 +23,8 @@ import com.unit.platform.mail.EmailSender
 import com.unit.platform.mail.EmailTemplateRenderer
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime
 
 @Service
@@ -104,14 +106,16 @@ class SchoolEmailVerificationService(
             ),
         )
 
-        emailSender.send(
-            EmailMessage(
-                to = email,
-                subject = "[UniT] 학교 이메일 인증 코드",
-                body = html,
-                html = true,
-            ),
+        val message = EmailMessage(
+            to = email,
+            subject = "[UniT] 학교 이메일 인증 코드",
+            body = html,
+            html = true,
         )
+
+        registerAfterCommit {
+            emailSender.send(message)
+        }
 
         return SchoolEmailVerificationResponse(
             schoolId = schoolId,
@@ -184,4 +188,20 @@ class SchoolEmailVerificationService(
     private fun SchoolEmailVerificationCode.memberIdEquals(memberId: Long): Boolean {
         return this.memberId == memberId
     }
+
+    private fun registerAfterCommit(action: () -> Unit) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action()
+            return
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    action()
+                }
+            },
+        )
+    }
+
 }

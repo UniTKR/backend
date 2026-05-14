@@ -9,23 +9,16 @@ import com.unit.member.entity.UserSchoolVerification
 import com.unit.member.enums.*
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.repository.*
-import com.unit.member.util.EmailEncryptor
-import com.unit.member.util.EmailHasher
-import com.unit.member.util.SchoolEmailVerificationCodeGenerator
-import com.unit.member.util.SchoolEmailVerificationFailureRecorder
-import com.unit.member.util.TokenHasher
+import com.unit.member.util.*
 import com.unit.platform.error.BusinessException
 import com.unit.platform.mail.EmailSender
 import com.unit.platform.mail.EmailTemplateRenderer
-import io.mockk.Runs
-import io.mockk.every
-import io.mockk.just
-import io.mockk.mockk
-import io.mockk.slot
-import io.mockk.verify
+import io.mockk.*
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime
 import kotlin.test.Test
 
@@ -59,6 +52,13 @@ class SchoolEmailVerificationServiceTest {
         emailTemplateRenderer = emailTemplateRenderer,
         emailEncryptor = emailEncryptor,
     )
+
+    @AfterEach
+    fun tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization()
+        }
+    }
 
     @Test
     @DisplayName("학교 이메일 인증 요청에 성공하면 기존 대기 코드를 취소하고 새 코드를 저장한다")
@@ -198,6 +198,74 @@ class SchoolEmailVerificationServiceTest {
     }
 
     @Test
+    @DisplayName("학교 이메일 인증 메일은 트랜잭션 커밋 이후 발송한다")
+    fun requestSendsEmailAfterCommit() {
+        val memberId = 1L
+        val schoolId = 1L
+        val emailHash = ByteArray(32) { 1 }
+        val codeHash = ByteArray(32) { 2 }
+
+        every { schoolRepository.findByIdAndStatus(schoolId) } returns createSchool(schoolId)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId,
+                schoolId,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns true
+        every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
+        every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
+        every {
+            schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
+                schoolId,
+                emailHash,
+                SchoolEmailVerificationStatus.PENDING,
+            )
+        } returns null
+        every { codeGenerator.generate() } returns "123456"
+        every { tokenHasher.hash("123456") } returns codeHash
+        every { schoolEmailVerificationCodeRepository.save(any()) } answers { firstArg() }
+        every {
+            emailTemplateRenderer.render(
+                templatePath = "mail/school-email-verification.html",
+                variables = mapOf(
+                    "code" to "123456",
+                    "expiresInMinutes" to "5",
+                ),
+            )
+        } returns "<html>인증코드 123456</html>"
+        every { emailSender.send(any()) } just Runs
+
+        TransactionSynchronizationManager.initSynchronization()
+
+        service.request(
+            memberId = memberId,
+            request = SchoolEmailVerificationRequest(
+                schoolId = schoolId,
+                email = "test@snu.ac.kr",
+            ),
+        )
+
+        verify(exactly = 0) { emailSender.send(any()) }
+
+        val synchronizations = TransactionSynchronizationManager.getSynchronizations()
+        assertThat(synchronizations).hasSize(1)
+
+        synchronizations.forEach { it.afterCommit() }
+
+        verify(exactly = 1) {
+            emailSender.send(
+                match {
+                    it.to == "test@snu.ac.kr" &&
+                            it.body == "<html>인증코드 123456</html>" &&
+                            it.html
+                },
+            )
+        }
+    }
+
+
+    @Test
     @DisplayName("학교가 없으면 인증 요청에 실패한다")
     fun requestWithNotFoundSchool() {
         every { schoolRepository.findByIdAndStatus(1L) } returns null
@@ -315,7 +383,13 @@ class SchoolEmailVerificationServiceTest {
         val emailHash = ByteArray(32) { 1 }
         val emailEncrypted = ByteArray(64) { 3 }
         val codeHash = ByteArray(32) { 2 }
-        val verificationCode = createVerificationCode(id = 10L, memberId = memberId, schoolId = schoolId, emailHash = emailHash, codeHash = codeHash)
+        val verificationCode = createVerificationCode(
+            id = 10L,
+            memberId = memberId,
+            schoolId = schoolId,
+            emailHash = emailHash,
+            codeHash = codeHash
+        )
         val schoolVerification = createUserSchoolVerification(memberId, schoolId)
         val member = createMember(memberId)
 
@@ -328,7 +402,12 @@ class SchoolEmailVerificationServiceTest {
         every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
         every { emailEncryptor.encrypt("test@snu.ac.kr") } returns emailEncrypted
-        every { userSchoolVerificationRepository.findByMemberIdAndSchoolId(memberId, schoolId) } returns schoolVerification
+        every {
+            userSchoolVerificationRepository.findByMemberIdAndSchoolId(
+                memberId,
+                schoolId
+            )
+        } returns schoolVerification
         every { memberRepository.findByIdAndStatusAndDeletedAtIsNull(memberId, MemberStatus.PENDING) } returns member
 
         val response = service.confirm(
@@ -463,7 +542,6 @@ class SchoolEmailVerificationServiceTest {
         verify(exactly = 0) { userSchoolVerificationRepository.findByMemberIdAndSchoolId(any(), any()) }
         verify(exactly = 0) { memberRepository.findByIdAndStatusAndDeletedAtIsNull(any(), any()) }
     }
-
 
 
     @Test
@@ -697,7 +775,12 @@ class SchoolEmailVerificationServiceTest {
         } returns verificationCode
         every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
-        every { userSchoolVerificationRepository.findByMemberIdAndSchoolId(memberId, schoolId) } returns schoolVerification
+        every {
+            userSchoolVerificationRepository.findByMemberIdAndSchoolId(
+                memberId,
+                schoolId
+            )
+        } returns schoolVerification
         every { memberRepository.findByIdAndStatusAndDeletedAtIsNull(memberId, MemberStatus.PENDING) } returns null
 
         assertThatThrownBy {
