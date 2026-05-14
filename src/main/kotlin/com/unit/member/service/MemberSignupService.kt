@@ -1,13 +1,17 @@
 package com.unit.member.service
 
+import com.unit.member.config.MemberConsentProperties
 import com.unit.member.dto.MemberSignupRequest
 import com.unit.member.dto.MemberSignupResponse
 import com.unit.member.entity.Member
+import com.unit.member.entity.MemberConsent
 import com.unit.member.entity.UserSchoolVerification
+import com.unit.member.enums.MemberConsentType
 import com.unit.member.enums.MemberStatus
 import com.unit.member.enums.UserSchoolVerificationMethod
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
+import com.unit.member.repository.MemberConsentRepository
 import com.unit.member.repository.MemberRepository
 import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
@@ -16,6 +20,7 @@ import com.unit.platform.error.BusinessException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 @Service
 @Transactional
@@ -25,6 +30,8 @@ class MemberSignupService(
     private val userSchoolVerificationRepository: UserSchoolVerificationRepository,
     private val passwordEncoder: PasswordEncoder,
     private val emailHasher: EmailHasher,
+    private val memberConsentRepository: MemberConsentRepository,
+    private val memberConsentProperties: MemberConsentProperties,
 ) : MemberSignupUseCase {
 
     override fun signup(request: MemberSignupRequest): MemberSignupResponse {
@@ -53,9 +60,31 @@ class MemberSignupService(
             ),
         )
 
+        val now = LocalDateTime.now()
+        val memberId = member.id!!
+
+        memberConsentRepository.saveAll(
+            listOf(
+                MemberConsent(
+                    memberId = memberId,
+                    consentType = MemberConsentType.TERMS_OF_SERVICE,
+                    policyVersion = memberConsentProperties.termsVersion,
+                    agreed = true,
+                    agreedAt = now,
+                ),
+                MemberConsent(
+                    memberId = memberId,
+                    consentType = MemberConsentType.PRIVACY_POLICY,
+                    policyVersion = memberConsentProperties.privacyPolicyVersion,
+                    agreed = true,
+                    agreedAt = now,
+                ),
+            ),
+        )
+
         userSchoolVerificationRepository.save(
             UserSchoolVerification(
-                memberId = member.id!!,
+                memberId = memberId,
                 schoolId = schoolId,
                 method = UserSchoolVerificationMethod.EMAIL,
                 status = UserSchoolVerificationStatus.PENDING,
@@ -63,7 +92,7 @@ class MemberSignupService(
         )
 
         return MemberSignupResponse(
-            memberId = member.id!!,
+            memberId = memberId,
             nickname = member.nickname,
             status = member.status,
             schoolVerificationStatus = UserSchoolVerificationStatus.PENDING,

@@ -21,5 +21,11 @@ data class MemberSignupRequest(
     val nickname: String,
 
     @field:NotNull
-    val schoolId: Long?
+    val schoolId: Long?,
+
+    @field:AssertTrue(message = "이용약관에 동의해야 합니다.")
+    val termsAgreed: Boolean,
+
+    @field:AssertTrue(message = "개인정보 처리방침에 동의해야 합니다.")
+    val privacyPolicyAgreed: Boolean,
 )

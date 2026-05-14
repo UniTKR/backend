@@ -62,3 +62,6 @@ unit:
       access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:1800}
     refresh-token:
       expiration-seconds: ${REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
+  consent:
+    terms-version: ${TERMS_VERSION:2026-05-14}
+    privacy-policy-version: ${PRIVACY_POLICY_VERSION:2026-05-14}
