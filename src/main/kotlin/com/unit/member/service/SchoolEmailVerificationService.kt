@@ -151,9 +151,8 @@ class SchoolEmailVerificationService(
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED)
         }
 
-        failureRecorder.increaseAttempt(requireNotNull(verificationCode.id))
-
         if (!tokenHasher.matches(code, verificationCode.codeHash)) {
+            failureRecorder.increaseAttempt(requireNotNull(verificationCode.id))
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED)
         }
 

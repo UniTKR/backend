@@ -399,7 +399,6 @@ class SchoolEmailVerificationServiceTest {
                 schoolId, emailHash, SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
-        every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
         every { emailEncryptor.encrypt("test@snu.ac.kr") } returns emailEncrypted
         every {
@@ -423,7 +422,7 @@ class SchoolEmailVerificationServiceTest {
         assertThat(schoolVerification.verifiedAt).isNotNull()
         assertThat(member.status).isEqualTo(MemberStatus.ACTIVE)
 
-        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
@@ -685,6 +684,7 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
+        every { tokenHasher.matches("123456", verificationCode.codeHash) } returns false
 
         assertThatThrownBy {
             service.confirm(
@@ -699,7 +699,7 @@ class SchoolEmailVerificationServiceTest {
 
         verify(exactly = 0) { failureRecorder.expire(any()) }
         verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
-        verify(exactly = 0) { tokenHasher.matches(any(), any()) }
+        verify(exactly = 1) { tokenHasher.matches("123456", verificationCode.codeHash) }
     }
 
     @Test
@@ -726,7 +726,6 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
-        every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
         every { userSchoolVerificationRepository.findByMemberIdAndSchoolId(memberId, schoolId) } returns null
 
@@ -744,7 +743,7 @@ class SchoolEmailVerificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
 
-        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
@@ -773,7 +772,6 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
-        every { failureRecorder.increaseAttempt(10L) } just Runs
         every { tokenHasher.matches("123456", codeHash) } returns true
         every {
             userSchoolVerificationRepository.findByMemberIdAndSchoolId(
@@ -797,7 +795,7 @@ class SchoolEmailVerificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.MEMBER_LOGIN_FORBIDDEN)
 
-        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
