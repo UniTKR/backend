@@ -2,6 +2,7 @@ package com.unit.member.service
 
 import com.unit.member.enums.MemberStatus
 import com.unit.member.exception.MemberErrorCode
+import com.unit.member.repository.MemberConsentRepository
 import com.unit.member.repository.MemberRepository
 import com.unit.member.withdrawal.MemberWithdrawalContext
 import com.unit.member.withdrawal.MemberWithdrawalPolicy
@@ -17,6 +18,7 @@ import java.time.LocalDateTime
 @Transactional
 class MemberWithdrawalService(
     private val memberRepository: MemberRepository,
+    private val memberConsentRepository: MemberConsentRepository,
     private val refreshTokenUseCase: RefreshTokenUseCase,
     private val withdrawalPolicies: List<MemberWithdrawalPolicy>,
 ) : MemberWithdrawalUseCase {
@@ -36,6 +38,8 @@ class MemberWithdrawalService(
         withdrawalPolicies.forEach { it.validate(context) }
 
         member.withdraw(now)
+        memberConsentRepository.findAllByMemberId(context.memberId)
+            .forEach { it.withdraw(now) }
         refreshTokenUseCase.revokeAll(context.memberId)
 
         registerAfterCommit {

@@ -50,4 +50,8 @@ class MemberConsent(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime? = null
         protected set
+
+    fun withdraw(now: LocalDateTime) {
+        this.withdrawnAt = now
+    }
 }
