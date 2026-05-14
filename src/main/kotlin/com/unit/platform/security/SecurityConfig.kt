@@ -9,6 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.access.AccessDeniedHandler
+import org.springframework.security.web.access.intercept.AuthorizationFilter
+import tools.jackson.databind.ObjectMapper
+import kotlin.jvm.java
 
 @Configuration
 class SecurityConfig(
@@ -32,7 +35,7 @@ class SecurityConfig(
     )
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    fun securityFilterChain(http: HttpSecurity, jwtAuthenticationValidationFilter: JwtAuthenticationValidationFilter,): SecurityFilterChain {
         http
             .csrf { it.disable() }
             .formLogin { it.disable() }
@@ -48,12 +51,25 @@ class SecurityConfig(
             .oauth2ResourceServer {
                 it.jwt {}
             }
+            .addFilterBefore(jwtAuthenticationValidationFilter, AuthorizationFilter::class.java)
             .authorizeHttpRequests { auth ->
                 auth
                     .requestMatchers(*actuatorEndpoints).permitAll()
                     .requestMatchers(*permitAllEndpoints).permitAll()
                     .anyRequest().authenticated()
             }
+
         return http.build()
+    }
+
+    @Bean
+    fun jwtAuthenticationValidationFilter(
+        validators: List<JwtAuthenticationValidator>,
+        objectMapper: ObjectMapper,
+    ): JwtAuthenticationValidationFilter {
+        return JwtAuthenticationValidationFilter(
+            validators = validators,
+            objectMapper = objectMapper
+        )
     }
 }
