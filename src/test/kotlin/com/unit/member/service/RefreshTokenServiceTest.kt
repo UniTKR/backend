@@ -260,6 +260,28 @@ class RefreshTokenServiceTest {
         verify(exactly = 1) { refreshTokenRepository.findByTokenHashAndStatus(tokenHash) }
     }
 
+    @Test
+    @DisplayName("회원의 활성 Refresh Token을 모두 폐기한다")
+    fun revokeAll() {
+        val token1 = createRefreshToken(tokenHash = ByteArray(32) { 1 })
+        val token2 = createRefreshToken(tokenHash = ByteArray(32) { 2 })
+
+        every {
+            refreshTokenRepository.findAllByMemberIdAndStatus(1L)
+        } returns listOf(token1, token2)
+
+        refreshTokenService.revokeAll(1L)
+
+        assertThat(token1.status).isEqualTo(RefreshTokenStatus.REVOKED)
+        assertThat(token1.revokedAt).isNotNull()
+        assertThat(token2.status).isEqualTo(RefreshTokenStatus.REVOKED)
+        assertThat(token2.revokedAt).isNotNull()
+
+        verify(exactly = 1) {
+            refreshTokenRepository.findAllByMemberIdAndStatus(1L)
+        }
+    }
+
     private fun createRefreshToken(
         tokenHash: ByteArray = ByteArray(32) { 1 },
         expiresAt: LocalDateTime = LocalDateTime.now().plusHours(1),

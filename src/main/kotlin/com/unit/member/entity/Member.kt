@@ -79,4 +79,13 @@ class Member(
         this.status = MemberStatus.ACTIVE
     }
 
+    fun withdraw(now: LocalDateTime) {
+        this.status = MemberStatus.DELETED
+        this.deletedAt = now
+        this.nickname = "탈퇴한 사용자"
+        this.profileImageUrl = null
+        this.passwordHash = null
+        this.emailEncrypted = null
+        this.phoneHash = null
+    }
 }

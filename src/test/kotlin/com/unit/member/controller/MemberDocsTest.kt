@@ -9,6 +9,7 @@ import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
+import com.unit.member.service.MemberWithdrawalUseCase
 import com.unit.platform.error.BusinessException
 import com.unit.platform.error.GlobalExceptionHandler
 import com.unit.platform.security.JsonAccessDeniedHandler
@@ -36,6 +37,7 @@ import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 
@@ -58,6 +60,9 @@ class MemberDocsTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var memberQueryUseCase: MemberQueryUseCase
+
+    @MockitoBean
+    private lateinit var memberWithdrawalUseCase: MemberWithdrawalUseCase
 
     @MockitoBean
     private lateinit var jwtDecoder: JwtDecoder
@@ -350,6 +355,35 @@ class MemberDocsTest @Autowired constructor(
                             .type(JsonFieldType.STRING)
                             .optional()
                             .description("학교 인증 상태"),
+                    ),
+                ),
+            )
+        }
+    }
+
+    @Test
+    @DisplayName("회원 탈퇴 API를 문서화한다")
+    fun withdraw() {
+        mockMvc.delete("/api/v1/members/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+            accept = MediaType.APPLICATION_JSON
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data") { doesNotExist() }
+        }.andDo {
+            handle(
+                document(
+                    "member/withdraw",
+                    requestHeaders(
+                        headerWithName(HttpHeaders.AUTHORIZATION)
+                            .description("Bearer Access Token"),
+                    ),
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 응답 코드"),
                     ),
                 ),
             )

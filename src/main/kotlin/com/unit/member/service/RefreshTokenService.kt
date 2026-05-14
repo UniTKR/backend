@@ -84,4 +84,11 @@ class RefreshTokenService(
 
         currentToken.revoke(now)
     }
+
+    override fun revokeAll(memberId: Long) {
+        val now = LocalDateTime.now()
+
+        refreshTokenRepository.findAllByMemberIdAndStatus(memberId)
+            .forEach { it.revoke(now) }
+    }
 }

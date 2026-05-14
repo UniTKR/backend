@@ -11,4 +11,6 @@ interface RefreshTokenUseCase {
     fun refresh(request: AuthTokenRefreshRequest): AuthTokenRefreshResponse
 
     fun logout(request: AuthLogoutRequest)
+
+    fun revokeAll(memberId: Long)
 }
