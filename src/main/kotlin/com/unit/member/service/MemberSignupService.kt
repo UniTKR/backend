@@ -15,6 +15,7 @@ import com.unit.member.repository.MemberConsentRepository
 import com.unit.member.repository.MemberRepository
 import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
+import com.unit.member.util.EmailEncryptor
 import com.unit.member.util.EmailHasher
 import com.unit.platform.error.BusinessException
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -32,10 +33,12 @@ class MemberSignupService(
     private val emailHasher: EmailHasher,
     private val memberConsentRepository: MemberConsentRepository,
     private val memberConsentProperties: MemberConsentProperties,
+    private val emailEncryptor: EmailEncryptor,
 ) : MemberSignupUseCase {
 
     override fun signup(request: MemberSignupRequest): MemberSignupResponse {
-        val emailHash = emailHasher.hash(request.email)
+        val email = request.email.trim().lowercase()
+        val emailHash = emailHasher.hash(email)
         val nickname = request.nickname.trim()
         val schoolId = request.schoolId!!
 
@@ -54,6 +57,7 @@ class MemberSignupService(
         val member = memberRepository.save(
             Member(
                 emailHash = emailHash,
+                emailEncrypted = emailEncryptor.encrypt(email),
                 passwordHash = passwordEncoder.encode(request.password),
                 nickname = nickname,
                 status = MemberStatus.PENDING,

@@ -11,6 +11,7 @@ import com.unit.member.exception.MemberErrorCode
 import com.unit.member.repository.MemberRepository
 import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
+import com.unit.member.util.EmailEncryptor
 import com.unit.platform.error.BusinessException
 import io.mockk.every
 import io.mockk.mockk
@@ -28,28 +29,35 @@ class MemberQueryServiceTest {
     private val memberRepository = mockk<MemberRepository>()
     private val userSchoolVerificationRepository = mockk<UserSchoolVerificationRepository>()
     private val schoolRepository = mockk<SchoolRepository>()
+    private val emailEncryptor = mockk<EmailEncryptor>()
 
     private val memberQueryService = MemberQueryService(
         memberRepository = memberRepository,
         userSchoolVerificationRepository = userSchoolVerificationRepository,
         schoolRepository = schoolRepository,
+        emailEncryptor = emailEncryptor,
     )
 
     @Test
     @DisplayName("내 정보 조회 정상 응답")
     fun getMe() {
 
-        val member = createMember()
-        val schoolVerification = createUserSchoolVerification()
+        val memberEmailEncrypted = ByteArray(64) { 1 }
+        val schoolEmailEncrypted = ByteArray(64) { 2 }
+        val member = createMember(emailEncrypted = memberEmailEncrypted)
+        val schoolVerification = createUserSchoolVerification(verifiedEmailEncrypted = schoolEmailEncrypted)
         val school = createSchool()
 
         every { memberRepository.findByIdAndStatusInAndDeletedAtIsNull(id = 1L, statuses = listOf(MemberStatus.PENDING, MemberStatus.ACTIVE)) } returns member
         every { userSchoolVerificationRepository.findByMemberId(1L) } returns schoolVerification
         every { schoolRepository.findById(1L) } returns Optional.of(school)
+        every { emailEncryptor.decrypt(memberEmailEncrypted) } returns "test@unit.com"
+        every { emailEncryptor.decrypt(schoolEmailEncrypted) } returns "test@snu.ac.kr"
 
         val response = memberQueryService.getMe(1L)
 
         assertThat(response.memberId).isEqualTo(1L)
+        assertThat(response.email).isEqualTo("test@unit.com")
         assertThat(response.nickname).isEqualTo("unit_user")
         assertThat(response.profileImageUrl).isEqualTo("profile_image_url")
         assertThat(response.status).isEqualTo(MemberStatus.ACTIVE)
@@ -57,6 +65,7 @@ class MemberQueryServiceTest {
         assertThat(response.school!!.schoolId).isEqualTo(1L)
         assertThat(response.school.name).isEqualTo("Unit_University")
         assertThat(response.school.verificationStatus).isEqualTo(UserSchoolVerificationStatus.VERIFIED)
+        assertThat(response.school.verifiedEmail).isEqualTo("test@snu.ac.kr")
 
         verify(exactly = 1) {
             memberRepository.findByIdAndStatusInAndDeletedAtIsNull(
@@ -150,7 +159,32 @@ class MemberQueryServiceTest {
     }
 
     @Test
-    @DisplayName("조회된 회원 ID가 없으면 예외가 발생한다")
+    @DisplayName("학교 인증 이메일 암호문이 없으면 학교 이메일은 null로 응답한다")
+    fun getMeWithoutVerifiedSchoolEmail() {
+        val member = createMember()
+        val schoolVerification = createUserSchoolVerification()
+        val school = createSchool()
+
+        every {
+            memberRepository.findByIdAndStatusInAndDeletedAtIsNull(
+                id = 1L,
+                statuses = listOf(MemberStatus.PENDING, MemberStatus.ACTIVE),
+            )
+        } returns member
+        every { userSchoolVerificationRepository.findByMemberId(1L) } returns schoolVerification
+        every { schoolRepository.findById(1L) } returns Optional.of(school)
+
+        val response = memberQueryService.getMe(1L)
+
+        assertThat(response.email).isNull()
+        assertThat(response.school).isNotNull
+        assertThat(response.school?.verifiedEmail).isNull()
+
+        verify(exactly = 0) { emailEncryptor.decrypt(any()) }
+    }
+
+    @Test
+    @DisplayName("조회할 회원 ID가 없으면 예외가 발생한다")
     fun getMeWithNullMemberId() {
         val member = createMember(id = null)
 
@@ -213,10 +247,12 @@ class MemberQueryServiceTest {
         nickname: String = "unit_user",
         profileImageUrl: String = "profile_image_url",
         trustScore: Int = 100,
-        status: MemberStatus = MemberStatus.ACTIVE
+        status: MemberStatus = MemberStatus.ACTIVE,
+        emailEncrypted: ByteArray? = null,
     ): Member {
         return Member(
             id = id,
+            emailEncrypted = emailEncrypted,
             nickname = nickname,
             profileImageUrl = profileImageUrl,
             trustScore = trustScore,
@@ -229,12 +265,14 @@ class MemberQueryServiceTest {
         schoolId: Long = 1L,
         method: UserSchoolVerificationMethod = UserSchoolVerificationMethod.EMAIL,
         status: UserSchoolVerificationStatus = UserSchoolVerificationStatus.VERIFIED,
+        verifiedEmailEncrypted: ByteArray? = null,
     ): UserSchoolVerification {
         return UserSchoolVerification(
             memberId = memberId,
             schoolId = schoolId,
             method = method,
             status = status,
+            verifiedEmailEncrypted = verifiedEmailEncrypted,
         )
     }
 

@@ -12,6 +12,7 @@ import com.unit.member.repository.SchoolEmailDomainRepository
 import com.unit.member.repository.SchoolEmailVerificationCodeRepository
 import com.unit.member.repository.SchoolRepository
 import com.unit.member.repository.UserSchoolVerificationRepository
+import com.unit.member.util.EmailEncryptor
 import com.unit.member.util.EmailHasher
 import com.unit.member.util.SchoolEmailVerificationCodeGenerator
 import com.unit.member.util.SchoolEmailVerificationFailureRecorder
@@ -22,6 +23,8 @@ import com.unit.platform.mail.EmailSender
 import com.unit.platform.mail.EmailTemplateRenderer
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.support.TransactionSynchronization
+import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime
 
 @Service
@@ -38,7 +41,7 @@ class SchoolEmailVerificationService(
     private val failureRecorder: SchoolEmailVerificationFailureRecorder,
     private val emailSender: EmailSender,
     private val emailTemplateRenderer: EmailTemplateRenderer,
-
+    private val emailEncryptor: EmailEncryptor,
     ) : SchoolEmailVerificationUseCase {
 
     private val verificationExpiresInSeconds = 300L
@@ -50,6 +53,18 @@ class SchoolEmailVerificationService(
         val schoolId = requireNotNull(request.schoolId)
         schoolRepository.findByIdAndStatus(schoolId)
             ?: throw BusinessException(MemberErrorCode.SCHOOL_NOT_FOUND)
+
+        val hasPendingSchoolVerification =
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId = memberId,
+                schoolId = schoolId,
+                status = UserSchoolVerificationStatus.PENDING,
+            )
+
+        if (!hasPendingSchoolVerification) {
+            throw BusinessException(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
+        }
+
 
         val email = request.email.trim().lowercase()
         val domain = extractDomain(email)
@@ -91,14 +106,16 @@ class SchoolEmailVerificationService(
             ),
         )
 
-        emailSender.send(
-            EmailMessage(
-                to = email,
-                subject = "[UniT] 학교 이메일 인증 코드",
-                body = html,
-                html = true,
-            ),
+        val message = EmailMessage(
+            to = email,
+            subject = "[UniT] 학교 이메일 인증 코드",
+            body = html,
+            html = true,
         )
+
+        registerAfterCommit {
+            emailSender.send(message)
+        }
 
         return SchoolEmailVerificationResponse(
             schoolId = schoolId,
@@ -134,27 +151,27 @@ class SchoolEmailVerificationService(
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED)
         }
 
-        failureRecorder.increaseAttempt(requireNotNull(verificationCode.id))
-
         if (!tokenHasher.matches(code, verificationCode.codeHash)) {
+            failureRecorder.increaseAttempt(requireNotNull(verificationCode.id))
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED)
         }
-
-        verificationCode.verify(now)
 
         val schoolVerification = userSchoolVerificationRepository.findByMemberIdAndSchoolId(
             memberId = memberId,
             schoolId = schoolId,
         ) ?: throw BusinessException(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
 
-        schoolVerification.status = UserSchoolVerificationStatus.VERIFIED
-        schoolVerification.verifiedAt = now
-
         val member = memberRepository.findByIdAndStatusAndDeletedAtIsNull(
             id = memberId,
             status = MemberStatus.PENDING,
         ) ?: throw BusinessException(MemberErrorCode.MEMBER_LOGIN_FORBIDDEN)
 
+        verificationCode.verify(now)
+        schoolVerification.verifyByEmail(
+            now = now,
+            emailHash = emailHash,
+            emailEncrypted = emailEncryptor.encrypt(email),
+        )
         member.activate()
 
         return SchoolEmailVerificationConfirmResponse(
@@ -170,4 +187,20 @@ class SchoolEmailVerificationService(
     private fun SchoolEmailVerificationCode.memberIdEquals(memberId: Long): Boolean {
         return this.memberId == memberId
     }
+
+    private fun registerAfterCommit(action: () -> Unit) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action()
+            return
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit() {
+                    action()
+                }
+            },
+        )
+    }
+
 }
