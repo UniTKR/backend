@@ -87,6 +87,34 @@ class MemberWithdrawalServiceTest {
     }
 
     @Test
+    @DisplayName("트랜잭션 동기화가 없으면 탈퇴 후처리를 즉시 실행한다")
+    fun withdrawWithoutTransactionSynchronization() {
+        val member = createMember()
+        val validateContext = slot<MemberWithdrawalContext>()
+        val applyContext = slot<MemberWithdrawalContext>()
+
+        every {
+            memberRepository.findByIdAndStatusInAndDeletedAtIsNull(
+                id = 1L,
+                statuses = listOf(MemberStatus.PENDING, MemberStatus.ACTIVE),
+            )
+        } returns member
+        every { withdrawalPolicy.validate(capture(validateContext)) } just Runs
+        every { refreshTokenUseCase.revokeAll(1L) } just Runs
+        every { withdrawalPolicy.apply(capture(applyContext)) } just Runs
+
+        memberWithdrawalService.withdraw(1L)
+
+        assertThat(member.status).isEqualTo(MemberStatus.DELETED)
+        assertThat(applyContext.captured.memberId).isEqualTo(1L)
+        assertThat(applyContext.captured.requestedAt).isEqualTo(validateContext.captured.requestedAt)
+
+        verify(exactly = 1) { withdrawalPolicy.validate(any()) }
+        verify(exactly = 1) { refreshTokenUseCase.revokeAll(1L) }
+        verify(exactly = 1) { withdrawalPolicy.apply(any()) }
+    }
+
+    @Test
     @DisplayName("탈퇴 가능한 회원을 찾을 수 없으면 예외가 발생한다")
     fun withdrawWithNotFoundMember() {
         every {
