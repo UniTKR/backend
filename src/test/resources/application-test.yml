@@ -26,3 +26,6 @@ unit:
       expiration-seconds: 1209600 # 14일
   mail:
     enabled: false
+  consent:
+    terms-version: 2026-05-14-test
+    privacy-policy-version: 2026-05-14-test

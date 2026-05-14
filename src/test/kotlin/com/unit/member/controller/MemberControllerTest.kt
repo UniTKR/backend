@@ -80,6 +80,8 @@ class MemberControllerTest @Autowired constructor(
             password = "password123!",
             nickname = "unit_user",
             schoolId = 1L,
+            termsAgreed = true,
+            privacyPolicyAgreed = true,
         )
 
         given(memberSignupUseCase.signup(request)).willReturn(
@@ -99,7 +101,9 @@ class MemberControllerTest @Autowired constructor(
                   "email": "test@unit.com",
                   "password": "password123!",
                   "nickname": "unit_user",
-                  "schoolId": 1
+                  "schoolId": 1,
+                  "termsAgreed": true,
+                  "privacyPolicyAgreed": true
                 }
             """.trimIndent()
         }.andExpect {
@@ -127,7 +131,9 @@ class MemberControllerTest @Autowired constructor(
                   "email": "invalid-email",
                   "password": "123",
                   "nickname": "",
-                  "schoolId": null
+                  "schoolId": null,
+                  "termsAgreed": false,
+                  "privacyPolicyAgreed": false
                 }
             """.trimIndent()
         }.andExpect {
@@ -148,6 +154,8 @@ class MemberControllerTest @Autowired constructor(
             password = "password123!",
             nickname = "unit_user",
             schoolId = 1L,
+            termsAgreed = true,
+            privacyPolicyAgreed = true,
         )
 
         given(memberSignupUseCase.signup(request))
@@ -161,7 +169,9 @@ class MemberControllerTest @Autowired constructor(
                   "email": "test@unit.com",
                   "password": "password123!",
                   "nickname": "unit_user",
-                  "schoolId": 1
+                  "schoolId": 1,
+                  "termsAgreed": true,
+                  "privacyPolicyAgreed": true
                 }
             """.trimIndent()
         }.andExpect {
@@ -195,7 +205,9 @@ class MemberControllerTest @Autowired constructor(
               "email": "test@unit.com",
               "password": "$password",
               "nickname": "unit_user",
-              "schoolId": 1
+              "schoolId": 1,
+              "termsAgreed": true,
+              "privacyPolicyAgreed": true
             }
         """.trimIndent()
         }.andExpect {

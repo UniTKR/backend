@@ -86,6 +86,8 @@ class MemberDocsTest @Autowired constructor(
             password = "password123!",
             nickname = "unit_user",
             schoolId = 1L,
+            termsAgreed = true,
+            privacyPolicyAgreed = true,
         )
 
         given(memberSignupUseCase.signup(request)).willReturn(
@@ -105,7 +107,9 @@ class MemberDocsTest @Autowired constructor(
                   "email": "test@unit.com",
                   "password": "password123!",
                   "nickname": "unit_user",
-                  "schoolId": 1
+                  "schoolId": 1,
+                  "termsAgreed": true,
+                  "privacyPolicyAgreed": true
                 }
             """.trimIndent()
         }.andExpect {
@@ -123,16 +127,22 @@ class MemberDocsTest @Autowired constructor(
                     requestFields(
                         fieldWithPath("email")
                             .type(JsonFieldType.STRING)
-                            .description("회원 이메일. 자체 로그인 식별자로 사용하며 서버에서는 정규화 후 해시로 저장합니다."),
+                            .description("회원 이메일입니다. 서버에서 정규화 후 해시로 저장합니다."),
                         fieldWithPath("password")
                             .type(JsonFieldType.STRING)
-                            .description("회원 비밀번호. 8자 이상 72자 이하이며 서버에서는 BCrypt 해시로 저장합니다."),
+                            .description("회원 비밀번호입니다. 8자 이상 72자 이하이며 영문, 숫자, 특수문자를 포함해야 합니다."),
                         fieldWithPath("nickname")
                             .type(JsonFieldType.STRING)
-                            .description("서비스에서 사용할 닉네임. 앞뒤 공백은 제거해서 저장합니다."),
+                            .description("서비스에서 사용할 닉네임입니다. 앞뒤 공백은 제거해서 저장합니다."),
                         fieldWithPath("schoolId")
                             .type(JsonFieldType.NUMBER)
                             .description("사용자가 선택한 학교 ID입니다."),
+                        fieldWithPath("termsAgreed")
+                            .type(JsonFieldType.BOOLEAN)
+                            .description("이용약관 필수 동의 여부입니다. true여야 회원가입할 수 있습니다."),
+                        fieldWithPath("privacyPolicyAgreed")
+                            .type(JsonFieldType.BOOLEAN)
+                            .description("개인정보 처리방침 필수 동의 여부입니다. true여야 회원가입할 수 있습니다."),
                     ),
                     responseFields(
                         fieldWithPath("code")
@@ -149,10 +159,10 @@ class MemberDocsTest @Autowired constructor(
                             .description("생성된 회원 닉네임"),
                         fieldWithPath("data.status")
                             .type(JsonFieldType.STRING)
-                            .description("회원 상태. 학교 이메일 인증 전에는 PENDING입니다."),
+                            .description("회원 상태입니다. 학교 이메일 인증 전에는 PENDING입니다."),
                         fieldWithPath("data.schoolVerificationStatus")
                             .type(JsonFieldType.STRING)
-                            .description("학교 인증 상태. 회원가입 직후에는 PENDING입니다."),
+                            .description("학교 인증 상태입니다. 회원가입 직후에는 PENDING입니다."),
                     ),
                 ),
             )
@@ -170,7 +180,9 @@ class MemberDocsTest @Autowired constructor(
                   "email": "invalid-email",
                   "password": "123",
                   "nickname": "",
-                  "schoolId": null
+                  "schoolId": null,
+                  "termsAgreed": false,
+                  "privacyPolicyAgreed": false
                 }
             """.trimIndent()
         }.andExpect {
@@ -196,6 +208,12 @@ class MemberDocsTest @Autowired constructor(
                         fieldWithPath("schoolId")
                             .type(JsonFieldType.NULL)
                             .description("검증 실패 예시 학교 ID"),
+                        fieldWithPath("termsAgreed")
+                            .type(JsonFieldType.BOOLEAN)
+                            .description("검증 실패 예시 이용약관 동의 여부"),
+                        fieldWithPath("privacyPolicyAgreed")
+                            .type(JsonFieldType.BOOLEAN)
+                            .description("검증 실패 예시 개인정보 처리방침 동의 여부"),
                     ),
                     responseFields(
                         fieldWithPath("code")
@@ -230,6 +248,8 @@ class MemberDocsTest @Autowired constructor(
             password = "password123!",
             nickname = "unit_user",
             schoolId = 1L,
+            termsAgreed = true,
+            privacyPolicyAgreed = true,
         )
 
         given(memberSignupUseCase.signup(request))
@@ -243,7 +263,9 @@ class MemberDocsTest @Autowired constructor(
                   "email": "test@unit.com",
                   "password": "password123!",
                   "nickname": "unit_user",
-                  "schoolId": 1
+                  "schoolId": 1,
+                  "termsAgreed": true,
+                  "privacyPolicyAgreed": true
                 }
             """.trimIndent()
         }.andExpect {
@@ -332,7 +354,7 @@ class MemberDocsTest @Autowired constructor(
                         fieldWithPath("data.profileImageUrl")
                             .type(JsonFieldType.STRING)
                             .optional()
-                            .description("프로필 이미지 URL. 값이 없으면 응답에서 생략됩니다."),
+                            .description("프로필 이미지 URL. 값이 없으면 응답에서 생략합니다."),
                         fieldWithPath("data.status")
                             .type(JsonFieldType.STRING)
                             .description("회원 상태"),
@@ -342,7 +364,7 @@ class MemberDocsTest @Autowired constructor(
                         fieldWithPath("data.school")
                             .type(JsonFieldType.OBJECT)
                             .optional()
-                            .description("학교 인증 정보. 인증 정보가 없으면 응답에서 생략됩니다."),
+                            .description("학교 인증 정보. 인증 정보가 없으면 응답에서 생략합니다."),
                         fieldWithPath("data.school.schoolId")
                             .type(JsonFieldType.NUMBER)
                             .optional()
