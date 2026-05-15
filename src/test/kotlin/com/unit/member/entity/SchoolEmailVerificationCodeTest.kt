@@ -4,6 +4,7 @@ import com.unit.member.enums.SchoolEmailVerificationStatus
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.springframework.test.util.ReflectionTestUtils
 import java.time.LocalDateTime
 import kotlin.test.BeforeTest
 
@@ -55,5 +56,39 @@ class SchoolEmailVerificationCodeTest {
         schoolEmailVerificationCode.cancel()
 
         assertThat(schoolEmailVerificationCode.status).isEqualTo(SchoolEmailVerificationStatus.CANCELED)
+    }
+
+    @Test
+    @DisplayName("생성 시각이 없으면 재요청 쿨다운 상태가 아니다")
+    fun isInCooldownWithoutCreatedAt() {
+        val now = LocalDateTime.of(2026, 5, 8, 12, 0)
+
+        assertThat(schoolEmailVerificationCode.isInCooldown(now, 60)).isFalse()
+    }
+
+    @Test
+    @DisplayName("생성 시각과 쿨다운 시간을 더한 값이 현재 시각 이후이면 쿨다운 상태이다")
+    fun isInCooldown() {
+        val now = LocalDateTime.of(2026, 5, 8, 12, 0)
+        ReflectionTestUtils.setField(
+            schoolEmailVerificationCode,
+            "createdAt",
+            now.minusSeconds(30),
+        )
+
+        assertThat(schoolEmailVerificationCode.isInCooldown(now, 60)).isTrue()
+    }
+
+    @Test
+    @DisplayName("생성 시각과 쿨다운 시간을 더한 값이 현재 시각과 같거나 이전이면 쿨다운 상태가 아니다")
+    fun isNotInCooldown() {
+        val now = LocalDateTime.of(2026, 5, 8, 12, 0)
+        ReflectionTestUtils.setField(
+            schoolEmailVerificationCode,
+            "createdAt",
+            now.minusSeconds(60),
+        )
+
+        assertThat(schoolEmailVerificationCode.isInCooldown(now, 60)).isFalse()
     }
 }

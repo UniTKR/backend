@@ -1,5 +1,6 @@
 package com.unit.member.service
 
+import com.unit.member.config.SchoolEmailVerificationProperties
 import com.unit.member.dto.SchoolAuthDto.*
 import com.unit.member.entity.SchoolEmailVerificationCode
 import com.unit.member.enums.MemberStatus
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime
+import kotlin.math.max
 
 @Service
 @Transactional
@@ -42,9 +44,8 @@ class SchoolEmailVerificationService(
     private val emailSender: EmailSender,
     private val emailTemplateRenderer: EmailTemplateRenderer,
     private val emailEncryptor: EmailEncryptor,
-    ) : SchoolEmailVerificationUseCase {
-
-    private val verificationExpiresInSeconds = 300L
+    private val properties: SchoolEmailVerificationProperties,
+) : SchoolEmailVerificationUseCase {
 
     override fun request(
         memberId: Long,
@@ -65,7 +66,6 @@ class SchoolEmailVerificationService(
             throw BusinessException(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
         }
 
-
         val email = request.email.trim().lowercase()
         val domain = extractDomain(email)
 
@@ -76,13 +76,10 @@ class SchoolEmailVerificationService(
         val emailHash = emailHasher.hash(email)
         val now = LocalDateTime.now()
 
-        schoolEmailVerificationCodeRepository
-            .findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
-                schoolId = schoolId,
-                emailHash = emailHash,
-                status = SchoolEmailVerificationStatus.PENDING,
-            )
-            ?.cancel()
+        handlePendingVerificationCodeForResend(
+            memberId = memberId,
+            now = now,
+        )
 
         val code = codeGenerator.generate()
 
@@ -93,7 +90,7 @@ class SchoolEmailVerificationService(
                 emailHash = emailHash,
                 codeHash = tokenHasher.hash(code),
                 purpose = SchoolEmailVerificationPurpose.SCHOOL_SIGNUP,
-                expiresAt = now.plusSeconds(verificationExpiresInSeconds),
+                expiresAt = now.plusSeconds(properties.codeExpirationSeconds),
                 status = SchoolEmailVerificationStatus.PENDING,
             )
         )
@@ -102,7 +99,7 @@ class SchoolEmailVerificationService(
             templatePath = "mail/school-email-verification.html",
             variables = mapOf(
                 "code" to code,
-                "expiresInMinutes" to (verificationExpiresInSeconds / 60).toString(),
+                "expiresInMinutes" to expirationMinutesForDisplay(properties.codeExpirationSeconds).toString(),
             ),
         )
 
@@ -120,8 +117,29 @@ class SchoolEmailVerificationService(
         return SchoolEmailVerificationResponse(
             schoolId = schoolId,
             email = email,
-            expiresIn = verificationExpiresInSeconds,
+            expiresIn = properties.codeExpirationSeconds,
         )
+    }
+
+    private fun handlePendingVerificationCodeForResend(memberId: Long, now: LocalDateTime) {
+        val latestPendingCode =
+            schoolEmailVerificationCodeRepository.findTopByMemberIdAndStatusOrderByCreatedAtDesc(
+                memberId = memberId,
+                status = SchoolEmailVerificationStatus.PENDING,
+            )
+
+        latestPendingCode?.let { existingCode ->
+            if (!existingCode.expiresAt.isAfter(now)) {
+                existingCode.expire()
+                return
+            }
+
+            if (existingCode.isInCooldown(now, properties.resendCooldownSeconds)) {
+                throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_COOLDOWN)
+            }
+
+            existingCode.cancel()
+        }
     }
 
     override fun confirm(
@@ -146,13 +164,23 @@ class SchoolEmailVerificationService(
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND)
         }
 
+        val verificationCodeId = requireNotNull(verificationCode.id)
+
         if (!verificationCode.expiresAt.isAfter(now)) {
-            failureRecorder.expire(requireNotNull(verificationCode.id))
+            failureRecorder.expire(verificationCodeId)
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED)
         }
 
         if (!tokenHasher.matches(code, verificationCode.codeHash)) {
-            failureRecorder.increaseAttempt(requireNotNull(verificationCode.id))
+            val attemptLimitExceeded = failureRecorder.recordMismatch(
+                id = verificationCodeId,
+                maxAttemptCount = properties.maxAttemptCount
+            )
+
+            if (attemptLimitExceeded) {
+                throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_ATTEMPT_LIMIT_EXCEEDED)
+            }
+
             throw BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED)
         }
 
@@ -171,6 +199,7 @@ class SchoolEmailVerificationService(
             now = now,
             emailHash = emailHash,
             emailEncrypted = emailEncryptor.encrypt(email),
+            expiresAt = now.plusDays(properties.verificationExpirationDays),
         )
         member.activate()
 
@@ -182,6 +211,10 @@ class SchoolEmailVerificationService(
 
     private fun extractDomain(email: String): String {
         return email.substringAfter("@", missingDelimiterValue = "")
+    }
+
+    private fun expirationMinutesForDisplay(seconds: Long): Long {
+        return max(1L, (seconds + 59) / 60)
     }
 
     private fun SchoolEmailVerificationCode.memberIdEquals(memberId: Long): Boolean {

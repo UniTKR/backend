@@ -1,5 +1,6 @@
 package com.unit.member.service
 
+import com.unit.member.config.SchoolEmailVerificationProperties
 import com.unit.member.dto.SchoolAuthDto.SchoolEmailVerificationConfirmRequest
 import com.unit.member.dto.SchoolAuthDto.SchoolEmailVerificationRequest
 import com.unit.member.entity.Member
@@ -18,6 +19,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
+import org.springframework.test.util.ReflectionTestUtils
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime
 import kotlin.test.Test
@@ -37,6 +39,12 @@ class SchoolEmailVerificationServiceTest {
     private val failureRecorder = mockk<SchoolEmailVerificationFailureRecorder>()
     private val emailSender = mockk<EmailSender>()
     private val emailTemplateRenderer = mockk<EmailTemplateRenderer>()
+    private val properties = SchoolEmailVerificationProperties(
+        codeExpirationSeconds = 300,
+        resendCooldownSeconds = 60,
+        maxAttemptCount = 5,
+        verificationExpirationDays = 365,
+    )
 
     private val service = SchoolEmailVerificationService(
         schoolRepository = schoolRepository,
@@ -51,6 +59,7 @@ class SchoolEmailVerificationServiceTest {
         emailSender = emailSender,
         emailTemplateRenderer = emailTemplateRenderer,
         emailEncryptor = emailEncryptor,
+        properties = properties,
     )
 
     @AfterEach
@@ -82,9 +91,8 @@ class SchoolEmailVerificationServiceTest {
         every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
 
         every {
-            schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
-                schoolId,
-                emailHash,
+            schoolEmailVerificationCodeRepository.findTopByMemberIdAndStatusOrderByCreatedAtDesc(
+                memberId,
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns previousCode
@@ -163,9 +171,8 @@ class SchoolEmailVerificationServiceTest {
         every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
         every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
         every {
-            schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
-                schoolId,
-                emailHash,
+            schoolEmailVerificationCodeRepository.findTopByMemberIdAndStatusOrderByCreatedAtDesc(
+                memberId,
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns null
@@ -198,6 +205,121 @@ class SchoolEmailVerificationServiceTest {
     }
 
     @Test
+    @DisplayName("인증 코드 재요청 쿨다운 시간이 지나지 않았으면 새 인증 코드를 발급하지 않는다")
+    fun requestWithinResendCooldown() {
+        val memberId = 1L
+        val schoolId = 1L
+        val emailHash = ByteArray(32) { 1 }
+        val previousCode = createVerificationCode(
+            memberId = memberId,
+            schoolId = schoolId,
+            emailHash = emailHash,
+            expiresAt = LocalDateTime.now().plusMinutes(5),
+        )
+        ReflectionTestUtils.setField(
+            previousCode,
+            "createdAt",
+            LocalDateTime.now().minusSeconds(properties.resendCooldownSeconds - 1),
+        )
+
+        every { schoolRepository.findByIdAndStatus(schoolId) } returns createSchool(schoolId)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId,
+                schoolId,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns true
+        every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
+        every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
+        every {
+            schoolEmailVerificationCodeRepository.findTopByMemberIdAndStatusOrderByCreatedAtDesc(
+                memberId,
+                SchoolEmailVerificationStatus.PENDING,
+            )
+        } returns previousCode
+
+        assertThatThrownBy {
+            service.request(
+                memberId = memberId,
+                request = SchoolEmailVerificationRequest(
+                    schoolId = schoolId,
+                    email = "test@snu.ac.kr",
+                ),
+            )
+        }
+            .isInstanceOf(BusinessException::class.java)
+            .extracting("errorCode")
+            .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_COOLDOWN)
+
+        assertThat(previousCode.status).isEqualTo(SchoolEmailVerificationStatus.PENDING)
+
+        verify(exactly = 0) { codeGenerator.generate() }
+        verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 0) { emailTemplateRenderer.render(any(), any()) }
+        verify(exactly = 0) { emailSender.send(any()) }
+    }
+
+    @Test
+    @DisplayName("기존 대기 인증 코드가 만료됐으면 만료 처리 후 새 인증 코드를 발급한다")
+    fun requestWithExpiredPreviousCode() {
+        val memberId = 1L
+        val schoolId = 1L
+        val emailHash = ByteArray(32) { 1 }
+        val codeHash = ByteArray(32) { 2 }
+        val previousCode = createVerificationCode(
+            memberId = memberId,
+            schoolId = schoolId,
+            emailHash = emailHash,
+            expiresAt = LocalDateTime.now().minusSeconds(1),
+        )
+
+        every { schoolRepository.findByIdAndStatus(schoolId) } returns createSchool(schoolId)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId,
+                schoolId,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns true
+        every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
+        every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
+        every {
+            schoolEmailVerificationCodeRepository.findTopByMemberIdAndStatusOrderByCreatedAtDesc(
+                memberId,
+                SchoolEmailVerificationStatus.PENDING,
+            )
+        } returns previousCode
+        every { codeGenerator.generate() } returns "123456"
+        every { tokenHasher.hash("123456") } returns codeHash
+        every { schoolEmailVerificationCodeRepository.save(any()) } answers { firstArg() }
+        every {
+            emailTemplateRenderer.render(
+                templatePath = "mail/school-email-verification.html",
+                variables = mapOf(
+                    "code" to "123456",
+                    "expiresInMinutes" to "5",
+                ),
+            )
+        } returns "<html>인증코드 123456</html>"
+        every { emailSender.send(any()) } just Runs
+
+        service.request(
+            memberId = memberId,
+            request = SchoolEmailVerificationRequest(
+                schoolId = schoolId,
+                email = "test@snu.ac.kr",
+            ),
+        )
+
+        assertThat(previousCode.status).isEqualTo(SchoolEmailVerificationStatus.EXPIRED)
+
+        verify(exactly = 1) { codeGenerator.generate() }
+        verify(exactly = 1) { schoolEmailVerificationCodeRepository.save(any()) }
+        verify(exactly = 1) { emailSender.send(any()) }
+    }
+
+    @Test
     @DisplayName("학교 이메일 인증 메일은 트랜잭션 커밋 이후 발송한다")
     fun requestSendsEmailAfterCommit() {
         val memberId = 1L
@@ -216,9 +338,8 @@ class SchoolEmailVerificationServiceTest {
         every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
         every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
         every {
-            schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
-                schoolId,
-                emailHash,
+            schoolEmailVerificationCodeRepository.findTopByMemberIdAndStatusOrderByCreatedAtDesc(
+                memberId,
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns null
@@ -370,7 +491,7 @@ class SchoolEmailVerificationServiceTest {
         verify(exactly = 0) { schoolRepository.findByIdAndStatus(any()) }
         verify(exactly = 0) { schoolEmailVerificationCodeRepository.save(any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
         verify(exactly = 0) { emailTemplateRenderer.render(any(), any()) }
         verify(exactly = 0) { emailSender.send(any()) }
     }
@@ -420,10 +541,12 @@ class SchoolEmailVerificationServiceTest {
         assertThat(schoolVerification.verifiedEmailHash).containsExactly(*emailHash)
         assertThat(schoolVerification.verifiedEmailEncrypted).isEqualTo(emailEncrypted)
         assertThat(schoolVerification.verifiedAt).isNotNull()
+        assertThat(schoolVerification.expiresAt)
+            .isEqualTo(schoolVerification.verifiedAt?.plusDays(properties.verificationExpirationDays))
         assertThat(member.status).isEqualTo(MemberStatus.ACTIVE)
 
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
     }
 
 
@@ -463,7 +586,7 @@ class SchoolEmailVerificationServiceTest {
 
         verify(exactly = 0) { tokenHasher.matches(any(), any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
         verify(exactly = 0) { userSchoolVerificationRepository.findByMemberIdAndSchoolId(any(), any()) }
         verify(exactly = 0) { memberRepository.findByIdAndStatusAndDeletedAtIsNull(any(), any()) }
     }
@@ -498,7 +621,7 @@ class SchoolEmailVerificationServiceTest {
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_NOT_FOUND)
 
         verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
     }
 
     @Test
@@ -537,7 +660,7 @@ class SchoolEmailVerificationServiceTest {
 
         verify(exactly = 0) { tokenHasher.matches(any(), any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
         verify(exactly = 0) { userSchoolVerificationRepository.findByMemberIdAndSchoolId(any(), any()) }
         verify(exactly = 0) { memberRepository.findByIdAndStatusAndDeletedAtIsNull(any(), any()) }
     }
@@ -580,7 +703,7 @@ class SchoolEmailVerificationServiceTest {
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRED)
 
         verify(exactly = 1) { failureRecorder.expire(10L) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
         verify(exactly = 0) { tokenHasher.matches(any(), any()) }
     }
 
@@ -617,7 +740,7 @@ class SchoolEmailVerificationServiceTest {
         }.isInstanceOf(IllegalArgumentException::class.java)
 
         verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
         verify(exactly = 0) { tokenHasher.matches(any(), any()) }
     }
 
@@ -643,7 +766,7 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
-        every { failureRecorder.increaseAttempt(10L) } just Runs
+        every { failureRecorder.recordMismatch(10L, properties.maxAttemptCount) } returns false
         every { tokenHasher.matches("000000", codeHash) } returns false
 
         assertThatThrownBy {
@@ -660,7 +783,52 @@ class SchoolEmailVerificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_CODE_MISMATCHED)
 
-        verify(exactly = 1) { failureRecorder.increaseAttempt(10L) }
+        verify(exactly = 1) { failureRecorder.recordMismatch(10L, properties.maxAttemptCount) }
+        verify(exactly = 0) { failureRecorder.expire(any()) }
+    }
+
+    @Test
+    @DisplayName("인증 코드 불일치로 최대 시도 횟수에 도달하면 시도 횟수 초과 에러를 반환한다")
+    fun confirmWithMismatchedCodeAndAttemptLimitExceeded() {
+        val emailHash = ByteArray(32) { 1 }
+        val codeHash = ByteArray(32) { 2 }
+        val verificationCode = createVerificationCode(
+            id = 10L,
+            memberId = 1L,
+            schoolId = 1L,
+            emailHash = emailHash,
+            codeHash = codeHash,
+            expiresAt = LocalDateTime.now().plusMinutes(5),
+            attemptCount = properties.maxAttemptCount - 1,
+        )
+
+        every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
+        every {
+            schoolEmailVerificationCodeRepository.findTopBySchoolIdAndEmailHashAndStatusOrderByCreatedAtDesc(
+                1L,
+                emailHash,
+                SchoolEmailVerificationStatus.PENDING,
+            )
+        } returns verificationCode
+        every { tokenHasher.matches("000000", codeHash) } returns false
+        every { failureRecorder.recordMismatch(10L, properties.maxAttemptCount) } returns true
+
+        assertThatThrownBy {
+            service.confirm(
+                memberId = 1L,
+                request = SchoolEmailVerificationConfirmRequest(
+                    schoolId = 1L,
+                    email = "test@snu.ac.kr",
+                    code = "000000",
+                ),
+            )
+        }
+            .isInstanceOf(BusinessException::class.java)
+            .extracting("errorCode")
+            .isEqualTo(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_ATTEMPT_LIMIT_EXCEEDED)
+
+        verify(exactly = 1) { tokenHasher.matches("000000", codeHash) }
+        verify(exactly = 1) { failureRecorder.recordMismatch(10L, properties.maxAttemptCount) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
@@ -684,8 +852,6 @@ class SchoolEmailVerificationServiceTest {
                 SchoolEmailVerificationStatus.PENDING,
             )
         } returns verificationCode
-        every { tokenHasher.matches("123456", verificationCode.codeHash) } returns false
-
         assertThatThrownBy {
             service.confirm(
                 memberId = 1L,
@@ -698,8 +864,8 @@ class SchoolEmailVerificationServiceTest {
         }.isInstanceOf(IllegalArgumentException::class.java)
 
         verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
-        verify(exactly = 1) { tokenHasher.matches("123456", verificationCode.codeHash) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
+        verify(exactly = 0) { tokenHasher.matches(any(), any()) }
     }
 
     @Test
@@ -743,7 +909,7 @@ class SchoolEmailVerificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.SCHOOL_VERIFICATION_NOT_FOUND)
 
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
@@ -795,7 +961,7 @@ class SchoolEmailVerificationServiceTest {
             .extracting("errorCode")
             .isEqualTo(MemberErrorCode.MEMBER_LOGIN_FORBIDDEN)
 
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
         verify(exactly = 0) { failureRecorder.expire(any()) }
     }
 
@@ -821,7 +987,82 @@ class SchoolEmailVerificationServiceTest {
             )
         }
         verify(exactly = 0) { failureRecorder.expire(any()) }
-        verify(exactly = 0) { failureRecorder.increaseAttempt(any()) }
+        verify(exactly = 0) { failureRecorder.recordMismatch(any(), any()) }
+    }
+
+    @Test
+    @DisplayName("인증 메일 만료 시간은 분 단위로 올림해 표시한다")
+    fun requestWithExpirationMinuteCeiling() {
+        val memberId = 1L
+        val schoolId = 1L
+        val emailHash = ByteArray(32) { 1 }
+        val codeHash = ByteArray(32) { 2 }
+        val displayProperties = properties.copy(codeExpirationSeconds = 90)
+        val displayService = SchoolEmailVerificationService(
+            schoolRepository = schoolRepository,
+            schoolEmailDomainRepository = schoolEmailDomainRepository,
+            schoolEmailVerificationCodeRepository = schoolEmailVerificationCodeRepository,
+            userSchoolVerificationRepository = userSchoolVerificationRepository,
+            memberRepository = memberRepository,
+            emailHasher = emailHasher,
+            tokenHasher = tokenHasher,
+            codeGenerator = codeGenerator,
+            failureRecorder = failureRecorder,
+            emailSender = emailSender,
+            emailTemplateRenderer = emailTemplateRenderer,
+            emailEncryptor = emailEncryptor,
+            properties = displayProperties,
+        )
+
+        every { schoolRepository.findByIdAndStatus(schoolId) } returns createSchool(schoolId)
+        every {
+            userSchoolVerificationRepository.existsByMemberIdAndSchoolIdAndStatus(
+                memberId,
+                schoolId,
+                UserSchoolVerificationStatus.PENDING,
+            )
+        } returns true
+        every { schoolEmailDomainRepository.existsBySchoolIdAndDomainAndStatus(schoolId, "snu.ac.kr") } returns true
+        every { emailHasher.hash("test@snu.ac.kr") } returns emailHash
+        every {
+            schoolEmailVerificationCodeRepository.findTopByMemberIdAndStatusOrderByCreatedAtDesc(
+                memberId,
+                SchoolEmailVerificationStatus.PENDING,
+            )
+        } returns null
+        every { codeGenerator.generate() } returns "123456"
+        every { tokenHasher.hash("123456") } returns codeHash
+        every { schoolEmailVerificationCodeRepository.save(any()) } answers { firstArg() }
+        every {
+            emailTemplateRenderer.render(
+                templatePath = "mail/school-email-verification.html",
+                variables = mapOf(
+                    "code" to "123456",
+                    "expiresInMinutes" to "2",
+                ),
+            )
+        } returns "<html>인증코드 123456</html>"
+        every { emailSender.send(any()) } just Runs
+
+        val response = displayService.request(
+            memberId = memberId,
+            request = SchoolEmailVerificationRequest(
+                schoolId = schoolId,
+                email = "test@snu.ac.kr",
+            ),
+        )
+
+        assertThat(response.expiresIn).isEqualTo(90)
+
+        verify(exactly = 1) {
+            emailTemplateRenderer.render(
+                templatePath = "mail/school-email-verification.html",
+                variables = mapOf(
+                    "code" to "123456",
+                    "expiresInMinutes" to "2",
+                ),
+            )
+        }
     }
 
     private fun createSchool(id: Long): School {
@@ -840,6 +1081,7 @@ class SchoolEmailVerificationServiceTest {
         emailHash: ByteArray = ByteArray(32) { 1 },
         codeHash: ByteArray = ByteArray(32) { 2 },
         expiresAt: LocalDateTime = LocalDateTime.now().plusMinutes(5),
+        attemptCount: Int = 0,
     ): SchoolEmailVerificationCode {
         return SchoolEmailVerificationCode(
             id = id,
@@ -848,6 +1090,7 @@ class SchoolEmailVerificationServiceTest {
             emailHash = emailHash,
             codeHash = codeHash,
             expiresAt = expiresAt,
+            attemptCount = attemptCount,
         )
     }
 

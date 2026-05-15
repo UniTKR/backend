@@ -331,6 +331,14 @@ include::{snippets}/member/school-email-verifications/request/school-not-found/h
 
 include::{snippets}/member/school-email-verifications/request/school-not-found/response-fields.adoc[]
 
+==== 학교 이메일 인증 재요청 쿨다운
+
+마지막 인증 코드 요청 이후 쿨다운 시간이 지나지 않았으면 `SCHOOL_EMAIL_VERIFICATION_COOLDOWN` 에러를 반환합니다.
+
+include::{snippets}/member/school-email-verifications/request/cooldown/http-response.adoc[]
+
+include::{snippets}/member/school-email-verifications/request/cooldown/response-fields.adoc[]
+
 ==== 학교 이메일 인증 확인
 
 사용자가 이메일로 받은 인증 코드를 제출합니다.
@@ -381,6 +389,14 @@ include::{snippets}/member/school-email-verifications/confirm/code-expired/respo
 include::{snippets}/member/school-email-verifications/confirm/code-mismatched/http-response.adoc[]
 
 include::{snippets}/member/school-email-verifications/confirm/code-mismatched/response-fields.adoc[]
+
+==== 학교 이메일 인증 시도 횟수 초과
+
+인증 코드 입력 실패 횟수가 허용 횟수에 도달하면 `SCHOOL_EMAIL_VERIFICATION_ATTEMPT_LIMIT_EXCEEDED` 에러를 반환합니다. 사용자는 새 인증 코드를 다시 요청해야 합니다.
+
+include::{snippets}/member/school-email-verifications/confirm/attempt-limit-exceeded/http-response.adoc[]
+
+include::{snippets}/member/school-email-verifications/confirm/attempt-limit-exceeded/response-fields.adoc[]
 
 ==== 학교 인증 정보 없음
 

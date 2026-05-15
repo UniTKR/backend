@@ -17,8 +17,15 @@ class SchoolEmailVerificationFailureRecorder(
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun increaseAttempt(id: Long) {
+    fun recordMismatch(id: Long, maxAttemptCount: Int): Boolean {
         val code = repository.findById(id).orElseThrow()
+
         code.increaseAttempt()
+
+        if (code.attemptCount >= maxAttemptCount) {
+            code.expire()
+            return true
+        }
+        return false
     }
 }

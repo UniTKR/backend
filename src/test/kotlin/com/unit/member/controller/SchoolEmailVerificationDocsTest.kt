@@ -653,4 +653,108 @@ class SchoolEmailVerificationDocsTest @Autowired constructor(
                 ),
             )
     }
+
+    @Test
+    @DisplayName("학교 이메일 인증 재요청 쿨다운 응답을 문서화한다")
+    fun requestVerificationCooldown() {
+        val request = SchoolEmailVerificationRequest(
+            schoolId = 1L,
+            email = "test@snu.ac.kr",
+        )
+
+        given(schoolEmailVerificationUseCase.request(1L, request))
+            .willThrow(BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_COOLDOWN))
+
+        mockMvc.perform(
+            post("/api/v1/school-email-verifications/request")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "schoolId": 1,
+                      "email": "test@snu.ac.kr"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().`is`(429))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("SCHOOL_EMAIL_VERIFICATION_COOLDOWN"))
+            .andExpect(jsonPath("$.traceId").exists())
+            .andDo(
+                document(
+                    "member/school-email-verifications/request/cooldown",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 재요청 쿨다운 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+    }
+
+    @Test
+    @DisplayName("학교 이메일 인증 시도 횟수 초과 응답을 문서화한다")
+    fun confirmVerificationAttemptLimitExceeded() {
+        val request = SchoolEmailVerificationConfirmRequest(
+            schoolId = 1L,
+            email = "test@snu.ac.kr",
+            code = "000000",
+        )
+
+        given(schoolEmailVerificationUseCase.confirm(1L, request))
+            .willThrow(BusinessException(MemberErrorCode.SCHOOL_EMAIL_VERIFICATION_ATTEMPT_LIMIT_EXCEEDED))
+
+        mockMvc.perform(
+            post("/api/v1/school-email-verifications/confirm")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "schoolId": 1,
+                      "email": "test@snu.ac.kr",
+                      "code": "000000"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+            .andExpect(status().`is`(429))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("SCHOOL_EMAIL_VERIFICATION_ATTEMPT_LIMIT_EXCEEDED"))
+            .andExpect(jsonPath("$.traceId").exists())
+            .andDo(
+                document(
+                    "member/school-email-verifications/confirm/attempt-limit-exceeded",
+                    responseFields(
+                        fieldWithPath("code")
+                            .type(JsonFieldType.STRING)
+                            .description("애플리케이션 에러 코드"),
+                        fieldWithPath("message")
+                            .type(JsonFieldType.STRING)
+                            .description("에러 메시지"),
+                        fieldWithPath("traceId")
+                            .type(JsonFieldType.STRING)
+                            .description("요청 추적 ID"),
+                        fieldWithPath("fieldErrors")
+                            .type(JsonFieldType.ARRAY)
+                            .optional()
+                            .description("필드 검증 실패 목록. 시도 횟수 초과 응답에서는 내려가지 않습니다."),
+                    ),
+                ),
+            )
+    }
 }

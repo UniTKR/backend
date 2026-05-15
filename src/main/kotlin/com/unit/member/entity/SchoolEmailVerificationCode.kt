@@ -64,4 +64,9 @@ class SchoolEmailVerificationCode(
     fun cancel() {
         this.status = SchoolEmailVerificationStatus.CANCELED
     }
+
+    fun isInCooldown(now: LocalDateTime, cooldownSeconds: Long): Boolean {
+        val requestedAt = createdAt ?: return false
+        return requestedAt.plusSeconds(cooldownSeconds).isAfter(now)
+    }
 }
