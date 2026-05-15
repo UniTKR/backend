@@ -99,7 +99,7 @@ class SchoolEmailVerificationService(
             templatePath = "mail/school-email-verification.html",
             variables = mapOf(
                 "code" to code,
-                "expiresInMinutes" to (properties.codeExpirationSeconds / 60).toString(),
+                "expiresInMinutes" to expirationMinutesForDisplay(properties.codeExpirationSeconds).toString(),
             ),
         )
 
@@ -211,6 +211,10 @@ class SchoolEmailVerificationService(
 
     private fun extractDomain(email: String): String {
         return email.substringAfter("@", missingDelimiterValue = "")
+    }
+
+    private fun expirationMinutesForDisplay(seconds: Long): Long {
+        return max(1L, (seconds + 59) / 60)
     }
 
     private fun SchoolEmailVerificationCode.memberIdEquals(memberId: Long): Boolean {
