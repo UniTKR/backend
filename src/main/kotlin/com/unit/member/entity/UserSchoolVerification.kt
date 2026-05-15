@@ -79,10 +79,16 @@ class UserSchoolVerification(
         now: LocalDateTime,
         emailHash: ByteArray,
         emailEncrypted: ByteArray? = null,
+        expiresAt: LocalDateTime? = null,
     ) {
         this.status = UserSchoolVerificationStatus.VERIFIED
         this.verifiedAt = now
+        this.expiresAt = expiresAt
         this.verifiedEmailHash = emailHash
         this.verifiedEmailEncrypted = emailEncrypted
+    }
+
+    fun isExpired(now: LocalDateTime): Boolean {
+        return expiresAt != null && !expiresAt!!.isAfter(now)
     }
 }

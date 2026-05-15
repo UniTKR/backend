@@ -31,3 +31,8 @@ unit:
   consent:
     terms-version: 2026-05-14-test
     privacy-policy-version: 2026-05-14-test
+  school-email-verification:
+    code-expiration-seconds: ${SCHOOL_EMAIL_VERIFICATION_CODE_EXPIRATION_SECONDS:300}
+    resend-cooldown-seconds: ${SCHOOL_EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:60}
+    max-attempt-count: ${SCHOOL_EMAIL_VERIFICATION_MAX_ATTEMPT_COUNT:5}
+    verification-expiration-days: ${SCHOOL_VERIFICATION_EXPIRATION_DAYS:365}
