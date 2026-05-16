@@ -9,6 +9,7 @@ import com.unit.member.enums.MemberStatus
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.service.MemberAvailabilityUseCase
+import com.unit.member.service.MemberProfileUseCase
 import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.member.service.MemberWithdrawalUseCase
@@ -70,6 +71,9 @@ class MemberDocsTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var memberAvailabilityUseCase: MemberAvailabilityUseCase
+
+    @MockitoBean
+    private lateinit var memberProfileUseCase: MemberProfileUseCase
 
     @MockitoBean
     private lateinit var jwtDecoder: JwtDecoder

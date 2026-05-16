@@ -88,4 +88,9 @@ class Member(
         this.emailEncrypted = null
         this.phoneHash = null
     }
+
+    fun updateProfile(nickname: String, profileImageUrl: String?) {
+        this.nickname = nickname
+        this.profileImageUrl = profileImageUrl
+    }
 }
