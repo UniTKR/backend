@@ -2,6 +2,8 @@ package com.unit.member.controller
 
 import com.unit.member.dto.MemberAvailabilityResponse
 import com.unit.member.dto.MemberMeResponse
+import com.unit.member.dto.MemberProfileUpdateRequest
+import com.unit.member.dto.MemberProfileUpdateResponse
 import com.unit.member.dto.MemberSchoolResponse
 import com.unit.member.dto.MemberSignupRequest
 import com.unit.member.dto.MemberSignupResponse
@@ -9,6 +11,7 @@ import com.unit.member.enums.MemberStatus
 import com.unit.member.enums.UserSchoolVerificationStatus
 import com.unit.member.exception.MemberErrorCode
 import com.unit.member.service.MemberAvailabilityUseCase
+import com.unit.member.service.MemberProfileUseCase
 import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.member.service.MemberWithdrawalUseCase
@@ -36,6 +39,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import kotlin.test.Test
 
 @WebMvcTest(MemberController::class)
@@ -62,6 +66,9 @@ class MemberControllerTest @Autowired constructor(
 
     @MockitoBean
     private lateinit var memberAvailabilityUseCase: MemberAvailabilityUseCase
+
+    @MockitoBean
+    private lateinit var memberProfileUseCase: MemberProfileUseCase
 
     @MockitoBean
     private lateinit var jwtDecoder: JwtDecoder
@@ -390,6 +397,99 @@ class MemberControllerTest @Autowired constructor(
 
         then(memberWithdrawalUseCase).should().withdraw(1L)
         then(memberWithdrawalUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("내 프로필 수정에 성공하면 200 OK를 반환한다")
+    fun updateMyProfile() {
+        val request = MemberProfileUpdateRequest(
+            nickname = "new_nickname",
+            profileImageUrl = "https://image.unit/profile.png",
+        )
+
+        given(memberProfileUseCase.updateProfile(1L, request)).willReturn(
+            MemberProfileUpdateResponse(
+                memberId = 1L,
+                nickname = "new_nickname",
+                profileImageUrl = "https://image.unit/profile.png",
+            ),
+        )
+
+        mockMvc.put("/api/v1/members/me/profile") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+            {
+              "nickname": "new_nickname",
+              "profileImageUrl": "https://image.unit/profile.png"
+            }
+        """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("OK") }
+            jsonPath("$.data.memberId") { value(1) }
+            jsonPath("$.data.nickname") { value("new_nickname") }
+            jsonPath("$.data.profileImageUrl") { value("https://image.unit/profile.png") }
+        }
+
+        then(memberProfileUseCase).should().updateProfile(1L, request)
+        then(memberProfileUseCase).shouldHaveNoMoreInteractions()
+    }
+
+    @Test
+    @DisplayName("내 프로필 수정 요청값이 유효하지 않으면 400을 반환한다")
+    fun updateMyProfileWithInvalidRequest() {
+        mockMvc.put("/api/v1/members/me/profile") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+            {
+              "nickname": "!",
+              "profileImageUrl": "https://image.unit/profile.png"
+            }
+        """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("VALIDATION_FAILED") }
+            jsonPath("$.fieldErrors") { isArray() }
+        }
+
+        then(memberProfileUseCase).shouldHaveNoInteractions()
+    }
+
+    @Test
+    @DisplayName("내 프로필 수정 시 닉네임이 중복되면 409를 반환한다")
+    fun updateMyProfileWithDuplicatedNickname() {
+        val request = MemberProfileUpdateRequest(
+            nickname = "duplicated",
+            profileImageUrl = "https://image.unit/profile.png",
+        )
+
+        given(memberProfileUseCase.updateProfile(1L, request))
+            .willThrow(BusinessException(MemberErrorCode.NICKNAME_ALREADY_EXISTS))
+
+        mockMvc.put("/api/v1/members/me/profile") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer access-token")
+            contentType = MediaType.APPLICATION_JSON
+            accept = MediaType.APPLICATION_JSON
+            content = """
+            {
+              "nickname": "duplicated",
+              "profileImageUrl": "https://image.unit/profile.png"
+            }
+        """.trimIndent()
+        }.andExpect {
+            status { isConflict() }
+            content { contentTypeCompatibleWith(MediaType.APPLICATION_JSON) }
+            jsonPath("$.code") { value("MEMBER_NICKNAME_ALREADY_EXISTS") }
+        }
+
+        then(memberProfileUseCase).should().updateProfile(1L, request)
+        then(memberProfileUseCase).shouldHaveNoMoreInteractions()
     }
 
 }

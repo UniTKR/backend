@@ -2,9 +2,12 @@ package com.unit.member.controller
 
 import com.unit.member.dto.MemberAvailabilityResponse
 import com.unit.member.dto.MemberMeResponse
+import com.unit.member.dto.MemberProfileUpdateRequest
+import com.unit.member.dto.MemberProfileUpdateResponse
 import com.unit.member.dto.MemberSignupRequest
 import com.unit.member.dto.MemberSignupResponse
 import com.unit.member.service.MemberAvailabilityUseCase
+import com.unit.member.service.MemberProfileUseCase
 import com.unit.member.service.MemberQueryUseCase
 import com.unit.member.service.MemberSignupUseCase
 import com.unit.member.service.MemberWithdrawalUseCase
@@ -30,6 +33,7 @@ class MemberController(
     private val memberQueryUseCase: MemberQueryUseCase,
     private val memberWithdrawalUseCase: MemberWithdrawalUseCase,
     private val memberAvailabilityUseCase: MemberAvailabilityUseCase,
+    private val memberProfileUseCase: MemberProfileUseCase
 ) {
 
     @PostMapping("/signup")
@@ -85,5 +89,16 @@ class MemberController(
         memberWithdrawalUseCase.withdraw(jwt.memberId())
 
         return ResponseEntity.ok(ApiResponse.ok())
+    }
+
+    @PutMapping("/me/profile")
+    fun updateMyProfile(
+        @AuthenticationPrincipal jwt: Jwt,
+        @Valid @RequestBody request: MemberProfileUpdateRequest
+    ): ResponseEntity<ApiResponse<MemberProfileUpdateResponse>> {
+
+        val response = memberProfileUseCase.updateProfile(jwt.memberId(), request)
+
+        return ResponseEntity.ok(ApiResponse.ok(response))
     }
 }
